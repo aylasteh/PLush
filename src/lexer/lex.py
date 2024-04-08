@@ -22,26 +22,29 @@ t_COMMA = r","
 
 
 # Build the lexer
-from ply import lex as lex
+#from ply import lex as lex
 import sys
+from ply import lex as lex
 
 lexer = lex.lex()
 
 if __name__ == "__main__":
-
+    '''
     if len(sys.argv) > 1:
+        #test einlesen
+        test = ','
         f = open(sys.argv[1], "r")
         data = f.read()
         f.close()
     else:
         data = ""
-        '''while True:
+        while True:
             try:
                 data += raw_input() + "\n"
             except:
                 break'''
 
-    lex.input(data)
+    lex.input(",")
 
     # Tokenize
     while True:

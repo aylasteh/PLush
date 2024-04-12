@@ -108,13 +108,9 @@ parser = yacc.yacc()
 
 
 # Sample input string to test the parser
-input_string = """
-    if (x < 10) {
-        y = x + 1;
-    } else {
-        y = x - 1;
-    }
-"""
+input_string = "if (x < 10) { y = x + 1;} else {y = x - 1;}"
+input_string = "if x = 10 { y = x + 1}"
+input_string = "if x { y }"
 
 # Parsing the input string
 try:

@@ -180,7 +180,7 @@ def t_ANY_error(t):
 # Build the lexer
 #from ply import lex as lex
 import sys
-from ply import lex as lex
+from src.ply import lex as lex
 
 lexer = lex.lex()
 

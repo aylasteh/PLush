@@ -72,7 +72,7 @@ def t_DOUBLE(t):
 
 # Reads an integer value
 def t_FLOAT(t):
-    r"\d+"
+    r'\d+\.\d*|\.\d+'
     t.value = float(t.value)
     return t
 
@@ -89,37 +89,43 @@ def t_INT(t):
 # Reads a string
 def t_string(t):
     # Reads the first character " and jumps to the string state
-    r"\""
-    t.lexer.string_start = t.lexer.lexpos
-    t.lexer.begin("string")
+    r'\"'
+    t.lexer.string_buffer = []
+    t.lexer.begin('string')
 
-
-def t_string_word(t):
-    r"[^\\\"\n]+"
-
-
-def t_string_notWord(t):
-    r"((\\n)|(\\t)|(\\\^c)|(\\[0-9][0-9][0-9])|(\\\")|(\\\\))+"
-
-# If the lexer reads the beginning of a multiline string, enter special state
-def t_string_specialCase(t):
-    r"\\"
-    t.lexer.special_start = t.lexer.lexpos
-    t.lexer.begin("escapeString")
-
-
-def t_escapeString_finish(t):
-    r"\\"
-    t.lexer.begin("string")
-
-
-def t_string_STRING(t):
-    # Reads the second character " and returns the STRING token
-    r"\""
-    t.value = t.lexer.lexdata[t.lexer.string_start - 1 : t.lexer.lexpos]
+def t_string_end(t):
+    r'\"'
+    t.value = ''.join(t.lexer.string_buffer)
     t.type = "STRING"
-    t.lexer.begin("INITIAL")
+    t.lexer.begin('INITIAL')
     return t
+'''
+def t_string_content(t):
+    r'[^\\"]+'
+    t.lexer.string_buffer.extend(t.value)
+
+def t_string_escape(t):
+    r'\\.'
+    # Translate special escape sequences
+    escape_sequences = {
+        'n': '\n',
+        't': '\t',
+        '"': '\"',
+        '\\': '\\'
+    }
+    # Append the correct character to the buffer
+    t.lexer.string_buffer.append(escape_sequences.get(t.value[1], t.value[1]))'''
+
+'''
+def t_string_error(t):
+    print(f"Illegal character in the string: {t.value[0]}")
+    t.lexer.skip(1)
+
+# Error handling rule for the initial state
+def t_error(t):
+    print("Illegal character '%s'" % t.value[0])
+    t.lexer.skip(1)'''
+
 
 def t_ID(t):
     r"[a-zA-Z][a-zA-Z_0-9]*"
@@ -128,32 +134,9 @@ def t_ID(t):
     return t
 
 # Ignores comments
-# Note: it only recognize comments if there is a whitespace at the end of the comment
-# i.e: /*any_text */
 def t_comment(t):
-    r"\#"
-    t.lexer.code_start = t.lexer.lexpos
-    t.lexer.level = 1
-    t.lexer.begin("comment")
-
-
-def t_comment_begin(t):
-    r"\#"
-    t.lexer.level += 1
-    pass
-
-
-def t_comment_COMMENT(t):
-    r"\S+"
-    pass
-
-
-def t_comment_end(t):
-    r"\ "
-    t.lexer.level -= 1
-
-    if t.lexer.level == 0:
-        t.lexer.begin("INITIAL")
+    r'\#.*'
+    pass  # Ignore the comment
 
 # Regular expression rules for simple tokens
 t_COMMA = r"\,"
@@ -190,7 +173,8 @@ t_ANY_ignore = " \t"
 
 # Error handling rule
 def t_ANY_error(t):
-    print("Illegal character '%s' in line '%s'" % (t.value[0], t.lineno))
+    print("Illegal character '%s'" % t.value[0])
+    t.lexer.skip(1)
 
 
 # Build the lexer
@@ -215,8 +199,13 @@ if __name__ == "__main__":
                 data += raw_input() + "\n"
             except:
                 break'''
+    
+    data = '''
+    3 + 4 * 10
+    + -20 *2
+    '''
 
-    lex.input("1")
+    lex.input(data)
 
     # Tokenize
     while True:

@@ -8,17 +8,21 @@ Language Description:
 - A program is made of several declarations or definitions that precede the main body.
 - A declaration includes the name of the function, its arguments and types and refinements, as well as the return type.
 
+<p align="center">
 val x : int := 1;
+</p>
 
 - Top-level declarations can be definitions of constants (val), definitions of mutable variables (var) or definition of functions.
 - Types are either boolean, char, float, int, string, void, or parametric arrays: [double], [int], [[int]]
 - Functions can be defined, or declared, depending on whether there is a body of code, or a semi-colon.
 - A definition is similar, but includes a block of code that defines the function, or a definition of the value.
 
+<p align="center">
 var a : int := 1; <br />
 val b : int := 2; <br />
 function f(val x : int) : int { f := x ^ 2; } <br />
 function g(val x : int) : float; # declaration of function for FFI.
+</p>
 
 - Statements, declarations and definitions (except functions) with values end with semicolon. Definitions of functions do not need semicolon, as the curly braces delimit the function.
 - Blocks are enclosed with { and } and are comprised of 0 or more statements.

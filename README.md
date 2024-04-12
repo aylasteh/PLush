@@ -20,9 +20,9 @@ val b : int := 2;
 function f(val x : int) : int { f := x ^ 2; }
 function g(val x : int) : float; # declaration of function for FFI.
 
--Statements, declarations and definitions (except functions) with values end with semicolon. Definitions of functions do not need semicolon, as the curly braces delimit the function.
--Blocks are enclosed with { and } and are comprised of 0 or more statements.
--If statements have a condition, a then block and optionally an else block, separated by the else keyword.
+- Statements, declarations and definitions (except functions) with values end with semicolon. Definitions of functions do not need semicolon, as the curly braces delimit the function.
+- Blocks are enclosed with { and } and are comprised of 0 or more statements.
+- If statements have a condition, a then block and optionally an else block, separated by the else keyword.
 - While statements are similar to if statements, without the else block.
 - Local variables statements are defined similarly to global ones (with a mandatory starting value)
 - Variable assignments can be statements (a := 2);

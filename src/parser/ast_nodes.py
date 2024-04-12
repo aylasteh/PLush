@@ -144,6 +144,13 @@ class ArrayExp(Expression):
 class EmptyExp(Expression):
     pass
 
+@dataclass
+class OpExp(Expression):
+    oper: Oper
+    left: Expression
+    right: Expression
+
+
 
 # VARIABLE
 

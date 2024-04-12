@@ -27,18 +27,18 @@ tokens = (
     "LBRACE", 
     "RBRACE", 
     #"CARET",
-    #"PLUS", 
-    #"MINUS", 
-    #"TIMES", 
-    #"DIVIDE", 
-    #"EQ", 
-    #"NEQ", 
-    #"LT", 
-    #"LE", 
-    #GT", 
-    #"GE", 
-    #"AND", 
-    #"OR", 
+    "PLUS", 
+    "MINUS", 
+    "TIMES", 
+    "DIVIDE", 
+    "EQ", 
+    "NEQ", 
+    "LT", 
+    "LE", 
+    "GT", 
+    "GE", 
+    "AND", 
+    "OR", 
     "ASSIGN", 
     #"PERCENT", 
     #"UNDERSCORE",
@@ -149,18 +149,18 @@ t_RBRACK = r"\]"
 t_LBRACE = r"\{"
 t_RBRACE = r"\}"
 #t_CARET = r"\^"
-#t_PLUS = r"\+"
-#t_MINUS = r"\-"
-#t_TIMES = r"\*"
-#t_DIVIDE = r"\/"
-#t_EQ = r"\="
-#t_NEQ = r"\!\="
-#t_LT = r"\<"
-#t_LE = r"\<\="
-#t_GT = r"\>"
-#t_GE = r"\>\="
-#t_AND = r"\&\&"
-#t_OR = r"\|\|"
+t_PLUS = r"\+"
+t_MINUS = r"\-"
+t_TIMES = r"\*"
+t_DIVIDE = r"\/"
+t_EQ = r"\="
+t_NEQ = r"\!\="
+t_LT = r"\<"
+t_LE = r"\<\="
+t_GT = r"\>"
+t_GE = r"\>\="
+t_AND = r"\&\&"
+t_OR = r"\|\|"
 t_ASSIGN = r"\:\="
 #t_PERCENT = r"\%"
 #t_UNDERSCORE = r"\_"
@@ -200,7 +200,7 @@ if __name__ == "__main__":
             except:
                 break'''
     
-    data = '''
+    data = ''' x
     3 + 4 * 10
     + -20 *2
     '''

@@ -23,6 +23,8 @@ def p_expression(p):
                | while_exp 
                | array_exp 
                | empty_exp
+               | op_exp
+               | id_exp
     """
     p[0] = p[1]
 
@@ -88,6 +90,96 @@ def p_empty_exp(p):
     "empty_exp :"
     p[0] = Node.EmptyExp(position=p.lineno(0))
 
+def p_op_exp(p):
+    """op_exp : binary_plus_exp
+           | binary_minus_exp
+           | binary_times_exp
+           | binary_divide_exp
+           | binary_eq_exp
+           | binary_neq_exp
+           | binary_lt_exp
+           | binary_le_exp
+           | binary_gt_exp
+           | binary_ge_exp
+           | binary_and_exp
+           | binary_or_exp"""
+    p[0] = p[1]
+
+def p_binary_plus_exp(p):
+    "binary_plus_exp : expression PLUS expression"
+    p[0] = Node.OpExp(position=p.lineno(2), oper=Node.Oper.plus, left=p[1], right=p[3])
+
+
+def p_binary_minus_exp(p):
+    "binary_minus_exp : expression MINUS expression"
+    p[0] = Node.OpExp(position=p.lineno(2), oper=Node.Oper.minus, left=p[1], right=p[3])
+
+
+def p_binary_times_exp(p):
+    "binary_times_exp : expression TIMES expression"
+    p[0] = Node.OpExp(position=p.lineno(2), oper=Node.Oper.times, left=p[1], right=p[3])
+
+
+def p_binary_divide_exp(p):
+    "binary_divide_exp : expression DIVIDE expression"
+    p[0] = Node.OpExp(
+        position=p.lineno(2), oper=Node.Oper.divide, left=p[1], right=p[3]
+    )
+
+
+def p_binary_eq_exp(p):
+    "binary_eq_exp : expression EQ expression"
+    p[0] = Node.OpExp(position=p.lineno(2), oper=Node.Oper.eq, left=p[1], right=p[3])
+
+
+def p_binary_neq_exp(p):
+    "binary_neq_exp : expression NEQ expression"
+    p[0] = Node.OpExp(position=p.lineno(2), oper=Node.Oper.neq, left=p[1], right=p[3])
+
+
+def p_binary_lt_exp(p):
+    "binary_lt_exp : expression LT expression"
+    p[0] = Node.OpExp(position=p.lineno(2), oper=Node.Oper.lt, left=p[1], right=p[3])
+
+
+def p_binary_le_exp(p):
+    "binary_le_exp : expression LE expression"
+    p[0] = Node.OpExp(position=p.lineno(2), oper=Node.Oper.le, left=p[1], right=p[3])
+
+
+def p_binary_gt_exp(p):
+    "binary_gt_exp : expression GT expression"
+    p[0] = Node.OpExp(position=p.lineno(2), oper=Node.Oper.gt, left=p[1], right=p[3])
+
+
+def p_binary_ge_exp(p):
+    "binary_ge_exp : expression GE expression"
+    p[0] = Node.OpExp(position=p.lineno(2), oper=Node.Oper.ge, left=p[1], right=p[3])
+
+
+def p_binary_and_exp(p):
+    "binary_and_exp : expression AND expression"
+    p[0] = Node.IfExp(
+        position=p.lineno(2),
+        test=p[1],
+        then_do=p[3],
+        else_do=Node.IntExp(position=p.lineno(2), int=0),
+    )
+
+
+def p_binary_or_exp(p):
+    "binary_or_exp : expression OR expression"
+    p[0] = Node.IfExp(
+        position=p.lineno(2),
+        test=p[1],
+        then_do=Node.IntExp(position=p.lineno(2), int=1),
+        else_do=p[3],
+    )
+
+def p_id_exp(p):
+    "id_exp : ID"
+    p[0]=p[1]
+
 #TODO implement
 
 # ERROR
@@ -111,6 +203,11 @@ parser = yacc.yacc()
 input_string = "if (x < 10) { y = x + 1;} else {y = x - 1;}"
 input_string = "if x = 10 { y = x + 1}"
 input_string = "if x { y }"
+input_string = "var x := int 1"
+#input_string = "int "
+#input_string = "23"
+input_string = "int = 23"
+#input_string = "var "
 
 # Parsing the input string
 try:

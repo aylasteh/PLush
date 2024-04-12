@@ -15,9 +15,9 @@ val x : int := 1;
 - Functions can be defined, or declared, depending on whether there is a body of code, or a semi-colon.
 - A definition is similar, but includes a block of code that defines the function, or a definition of the value.
 
-var a : int := 1;
-val b : int := 2;
-function f(val x : int) : int { f := x ^ 2; }
+var a : int := 1; \\
+val b : int := 2; \\ 
+function f(val x : int) : int { f := x ^ 2; } \\ 
 function g(val x : int) : float; # declaration of function for FFI.
 
 - Statements, declarations and definitions (except functions) with values end with semicolon. Definitions of functions do not need semicolon, as the curly braces delimit the function.

@@ -84,7 +84,11 @@ def p_array_exp(p):
 def p_variable(p):
     "simple_var ASSIGN ID"
     p[0] = Node.SimpleVar(position=p.lineno(1), sym=p[1])
-    
+
+def p_empty_exp(p):
+    "empty_exp :"
+    p[0] = Node.EmptyExp(position=p.lineno(0))
+
 #TODO implement
 
 # ERROR

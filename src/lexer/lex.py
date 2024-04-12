@@ -17,50 +17,50 @@ tokens = (
     #'SPACE',
     #'COMMENT',
     # punctuation symbols
-    "COMMA",
-    "COLON",
-    "SEMICOLON",
+    #"COMMA",
+    #"COLON",
+    #"SEMICOLON",
     "LPAREN", 
     "RPAREN", 
     "LBRACK", 
     "RBRACK", 
     "LBRACE", 
     "RBRACE", 
-    "CARET",
-    "PLUS", 
-    "MINUS", 
-    "TIMES", 
-    "DIVIDE", 
-    "EQ", 
-    "NEQ", 
-    "LT", 
-    "LE", 
-    "GT", 
-    "GE", 
-    "AND", 
-    "OR", 
+    #"CARET",
+    #"PLUS", 
+    #"MINUS", 
+    #"TIMES", 
+    #"DIVIDE", 
+    #"EQ", 
+    #"NEQ", 
+    #"LT", 
+    #"LE", 
+    #GT", 
+    #"GE", 
+    #"AND", 
+    #"OR", 
     "ASSIGN", 
-    "PERCENT", 
-    "UNDERSCORE",
+    #"PERCENT", 
+    #"UNDERSCORE",
     # keywords
     #"ARRAY",
     "IF", 
-    "THEN", 
+    #"THEN", 
     "ELSE", 
     "WHILE", 
-    "FUNCTION", 
-    "VAR",
-    "VAL",
+    #"FUNCTION", 
+    #"VAR",
+    #"VAL",
 )
 
 reservedKeywords = (
     "if",
-    "then",
+    #"then",
     "else",
     "while",
-    "function",
-    "var",
-    "val"
+    #"function",
+    #"var",
+    #"val"
 )
 
 # Regular expression rules with some actions required
@@ -139,31 +139,31 @@ def t_comment(t):
     pass  # Ignore the comment
 
 # Regular expression rules for simple tokens
-t_COMMA = r"\,"
-t_COLON = r"\:"
-t_SEMICOLON = r"\;"
+#t_COMMA = r"\,"
+#t_COLON = r"\:"
+#t_SEMICOLON = r"\;"
 t_LPAREN = r"\("
 t_RPAREN = r"\)"
 t_LBRACK = r"\["
 t_RBRACK = r"\]"
 t_LBRACE = r"\{"
 t_RBRACE = r"\}"
-t_CARET = r"\^"
-t_PLUS = r"\+"
-t_MINUS = r"\-"
-t_TIMES = r"\*"
-t_DIVIDE = r"\/"
-t_EQ = r"\="
-t_NEQ = r"\!\="
-t_LT = r"\<"
-t_LE = r"\<\="
-t_GT = r"\>"
-t_GE = r"\>\="
-t_AND = r"\&\&"
-t_OR = r"\|\|"
+#t_CARET = r"\^"
+#t_PLUS = r"\+"
+#t_MINUS = r"\-"
+#t_TIMES = r"\*"
+#t_DIVIDE = r"\/"
+#t_EQ = r"\="
+#t_NEQ = r"\!\="
+#t_LT = r"\<"
+#t_LE = r"\<\="
+#t_GT = r"\>"
+#t_GE = r"\>\="
+#t_AND = r"\&\&"
+#t_OR = r"\|\|"
 t_ASSIGN = r"\:\="
-t_PERCENT = r"\%"
-t_UNDERSCORE = r"\_"
+#t_PERCENT = r"\%"
+#t_UNDERSCORE = r"\_"
 
 
 #TODO implement

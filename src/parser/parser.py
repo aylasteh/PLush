@@ -1,6 +1,6 @@
 import ast_nodes as Node
-import ply.yacc as yacc
-#from lexer.lex import tokens
+import src.ply.yacc as yacc
+from src.lexer.lex import tokens
 
 # CONFIGURATION
 
@@ -9,20 +9,19 @@ start = "expression"
 # EXPRESSION
 def p_expression(p):
     """
-    expression : paren_exp #
-               | var_exp #
-               | val_exp #
-               | boolean_exp #
-               | double_exp #
-               | char_exp
-               | float_exp #
-               | int_exp #
-               | string_exp #
-               | assign_exp #
-               | if_then_exp #
-               | if_then_else_exp #
-               | while_exp #
-               | array_exp #
+    expression : paren_exp 
+               | var_exp 
+               | val_exp
+               | boolean_exp 
+               | double_exp 
+               | float_exp 
+               | int_exp 
+               | string_exp 
+               | assign_exp 
+               | if_then_exp 
+               | if_then_else_exp 
+               | while_exp 
+               | array_exp 
                | empty_exp
     """
     p[0] = p[1]
@@ -82,7 +81,7 @@ def p_array_exp(p):
 
 #VARIABLE
 def p_variable(p):
-    "simple_var ASSIGN ID"
+    "variable : ASSIGN ID"
     p[0] = Node.SimpleVar(position=p.lineno(1), sym=p[1])
 
 def p_empty_exp(p):
@@ -106,3 +105,22 @@ def p_error(p):
 
 # Build the parser
 parser = yacc.yacc()
+
+
+# Sample input string to test the parser
+input_string = """
+    if (x < 10) {
+        y = x + 1;
+    } else {
+        y = x - 1;
+    }
+"""
+
+# Parsing the input string
+try:
+    parsed_output = parser.parse(input_string)
+    print("Parsing successful!")
+    print("Parsed output:")
+    print(parsed_output)
+except SyntacticError as e:
+    print(f"Syntax error: {e}")

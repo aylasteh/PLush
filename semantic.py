@@ -205,7 +205,7 @@ def check(node):
                     c = 0
                 t = check(node.args[c])
                 if t != 'boolean':
-                    raise Exception, "%s condition requires a boolean. Got %s instead." % (self.node_type,t)
+                    raise Exception, "%s condition requires a boolean. Got %s instead." % (node.type,t)
                 # check body
                 check(node.args[1-c])
                 # check else

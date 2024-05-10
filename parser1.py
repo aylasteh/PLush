@@ -75,11 +75,13 @@ def p_function_call_exp(p):
 
 def p_var_exp(p):
     "var_exp : VAR variable ASSIGN expression SEMICOLON"
-    p[0] = Node.VarExp(position=p.slice[1].value.position, var=p[1])
+    p[0] = Node.VarDeclaration(position=p.lineno(1),name=p[2],type=p[4],initial_value=[6])
+    #p[0] = Node.VarExp(position=p.slice[1].value.position, var=p[1])
 
 def p_val_exp(p):
     "val_exp : VAL variable ASSIGN expression SEMICOLON"
-    p[0] = Node.VarExp(position=p.slice[1].value.position, var=p[1])
+    p[0] = Node.ValDeclaration(position=p.lineno(1),name=p[2],type=p[4],value=[6])
+    #p[0] = Node.VarExp(position=p.slice[1].value.position, var=p[1])
 
 def p_boolean_exp(p):
     "boolean_exp : BOOLEAN"
@@ -261,16 +263,19 @@ parser = yacc.yacc()
 
 # Sample input string to test the parser
 input_string = "if (x < 10) { y = x + 1;} else {y = x - 1;}"
-#input_string = "if x = 10 { y = x + 1}"
-#input_string = "if x { y }"
-#input_string = "var x := int 1;"
-#input_string = "int "
-#input_string = "23"
-#input_string = "int = 23"
-#input_string = "var "
-#input_string = "var x: int := 1; var y: float := 3.14; w"
-#input_string = "function square(val x: int): int { square := x * x; }"
-#input_string = "var result: int := (5 + 3) * 2 - (10 / 2);"
+#input_string = "if x = 10 { y = x + 1;}" funktioniert
+#input_string = "if x { y ; }" funktioniert
+#input_string = "var x := int = 2;" funktioniert
+#input_string = "int " funktioniert
+#input_string = "23" funktioniert
+#input_string = "int = 23" funktioniert
+#input_string = "var " funktioniert
+#input_string = "1_0"
+#input_string = "while (x = 10) { y = x + 1;}" funktioniert
+#input_string = "boolean = true" funktioniert
+#input_string = "var x := int = 1; var y := float = 3.14;"
+#input_string = "function square(val x := int): int { square := x * x; }"
+#input_string = "var result := int = (5 + 3) * 2 - (10 / 2);" funktioneirt
 
 
 # Parsing the input string

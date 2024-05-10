@@ -270,7 +270,7 @@ input_string = "if (x < 10) { y = x + 1;} else {y = x - 1;}"
 #input_string = "var "
 #input_string = "var x: int := 1; var y: float := 3.14; w"
 #input_string = "function square(val x: int): int { square := x * x; }"
-input_string = "var result: int := (5 + 3) * 2 - (10 / 2);"
+#input_string = "var result: int := (5 + 3) * 2 - (10 / 2);"
 
 
 # Parsing the input string

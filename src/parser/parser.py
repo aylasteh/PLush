@@ -272,7 +272,8 @@ import ast_nodes as Node
 from ply.yacc import yacc
 #import src.ply.yacc as yacc
 #from src.lexer.lex import tokens
-from lexer.lex import tokens
+#from lexer.lex import tokens
+import lex 
 
 # CONFIGURATION
 

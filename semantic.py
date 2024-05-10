@@ -149,7 +149,7 @@ def check(node):
                     set_var(i[0],i[1])
                 check(node.args[1])
                 pop()
-            elif node.type in ["function_call","function_call_inline"]:
+            elif node.type in ["function_call"]:
                 fname = node.args[0].args[0].lower()
                 if fname not in functions:
                     raise Exception, "Function %s is not defined" % fname
@@ -165,7 +165,7 @@ def check(node):
                         if vargs[i][1] != args[i]:
                             raise Exception, "Parameter #%d passed to function %s should be of type %s and not %s" % (i+1,fname,vargs[i][1],args[i])
                 return rettype
-            elif node.type == "assign":    
+            elif node.type in ['assign',':=']:    
                     varn = check(node.args[0]).lower()
                     if is_function_name(varn):
                         vartype = functions[varn][0]
@@ -176,7 +176,7 @@ def check(node):
                     assgntype = check(node.args[1])
                     if vartype != assgntype:
                         raise Exception, "Variable %s is of type %s and does not support %s" % (varn, vartype, assgntype)
-            elif node.type == 'and_or':
+            elif node.type in ['&&','||']:
                 op = node.args[0].args[0]
                 for i in range(1,2):
                     a = check(node.args[i])
@@ -188,17 +188,17 @@ def check(node):
                 vt2 = check(node.args[2])
                 if vt1 != vt2:
                     raise Exception, "Arguments of operation '%s' must be of the same type. Got %s and %s." % (op,vt1,vt2)
-                if op in ['mod','div']:
+                if op in ['+','-','*','/','%']:
                     if vt1 != 'integer':
                         raise Exception, "Operation %s requires integers." % op
                 if op == '/':
                     if vt1 != 'real':
                         raise Exception, "Operation %s requires reals." % op
-                if op in ['=','<=','>=','>','<','<>']:
+                if op in ['=','<=','>=','>','<','!=','&&','||']:
                     return 'boolean'
                 else:
                     return vt1    
-            elif node.type in ['if','while','repeat']:
+            elif node.type in ['if','while','repeat','elif']:
                 if node.type == 'repeat':
                     c = 1
                 else:
@@ -211,19 +211,7 @@ def check(node):
                 # check else
                 if len(node.args) > 2:
                     check(node.args[2])
-            elif node.type == 'for':
-                contexts.append(Context())
-                v = node.args[0].args[0].args[0].lower()
-                set_var(v,'INTEGER')
-                st = node.args[0].args[1].args[0].type.lower()
-                if st != 'integer':
-                    raise Exception, 'For requires a integer as a starting value'
-                fv = node.args[2].args[0].type.lower()
-                if fv != 'integer':
-                    raise Exception, 'For requires a integer as a final value'
-                check(node.args[3])
-                pop()
-            elif node.type == 'not':
+            elif node.type == '!':
                 return check(node.args[0])
             elif node.type == "element":
                 if node.args[0].type == 'identifier':
@@ -237,161 +225,3 @@ def check(node):
                         return check(node.args[0])
             else:
                 print( "semantic missing:", node.type)	
-	
-'''else:
-		if node.type in ['identifier']:
-			return node.args[0]
-			
-		elif node.type in ['var_list','statement_list','function_list']:
-			return check(node.args)
-			
-		elif node.type in ["program","block"]:
-			contexts.append(Context())
-			check(node.args)
-			pop()
-			
-		elif node.type == "var":
-			var_name = node.args[0].args[0]
-			var_type = node.args[1].args[0]
-			set_var(var_name, var_type)
-			
-		elif node.type in ['function','procedure']:
-			head = node.args[0]
-			name = head.args[0].args[0].lower()
-			check_if_function(name)
-			
-			if len(head.args) == 1:
-				args = []
-			else:
-				args = flatten(head.args[1])
-				args = map(lambda x: (x.args[0].args[0],x.args[1].args[0]), args)
-				
-			if node.type == 'procedure':
-				rettype = 'void'
-			else:
-				rettype = head.args[-1].args[0].lower()
-				
-			functions[name] = (rettype,args)
-			
-			
-			contexts.append(Context(name))
-			for i in args:
-				set_var(i[0],i[1])
-			check(node.args[1])
-			pop()
-			
-		elif node.type in ["function_call","function_call_inline"]:
-			fname = node.args[0].args[0].lower()
-			if fname not in functions:
-				raise Exception, "Function %s is not defined" % fname
-			if len(node.args) > 1:
-				args = get_params(node.args[1])
-			else:
-				args = []
-			rettype,vargs = functions[fname]
-		
-			if len(args) != len(vargs):
-				raise Exception, "Function %s is expecting %d parameters and got %d" % (fname, len(vargs), len(args))
-			else:
-				for i in range(len(vargs)):
-					if vargs[i][1] != args[i]:
-						raise Exception, "Parameter #%d passed to function %s should be of type %s and not %s" % (i+1,fname,vargs[i][1],args[i])
-			
-			return rettype
-			
-		elif node.type == "assign":	
-				varn = check(node.args[0]).lower()
-				if is_function_name(varn):
-					vartype = functions[varn][0]
-				else:
-					if not has_var(varn):
-						raise Exception, "Variable %s not declared" % varn
-					vartype = get_var(varn)
-				assgntype = check(node.args[1])
-				
-				if vartype != assgntype:
-					raise Exception, "Variable %s is of type %s and does not support %s" % (varn, vartype, assgntype)
-				
-				
-		elif node.type == 'and_or':
-			op = node.args[0].args[0]
-			for i in range(1,2):
-				a = check(node.args[i])
-				if a != "boolean":
-					raise Exception, "%s requires a boolean. Got %s instead." % (op,a)
-
-			
-		elif node.type == "op":
-			
-			op = node.args[0].args[0]
-			vt1 = check(node.args[1])
-			vt2 = check(node.args[2])
-
-			if vt1 != vt2:
-				raise Exception, "Arguments of operation '%s' must be of the same type. Got %s and %s." % (op,vt1,vt2)
-				
-			if op in ['mod','div']:
-				if vt1 != 'integer':
-					raise Exception, "Operation %s requires integers." % op
-			
-			if op == '/':
-				if vt1 != 'real':
-					raise Exception, "Operation %s requires reals." % op
-				
-			if op in ['=','<=','>=','>','<','<>']:
-				return 'boolean'
-			else:
-				return vt1	
-			
-				
-		elif node.type in ['if','while','repeat']:
-			if node.type == 'repeat':
-				c = 1
-			else:
-				c = 0
-			t = check(node.args[c])
-			if t != 'boolean':
-				raise Exception, "%s condition requires a boolean. Got %s instead." % (node.type,t)
-			
-			# check body
-			check(node.args[1-c])
-			
-			# check else
-			if len(node.args) > 2:
-				check(node.args[2])
-				
-			
-		elif node.type == 'for':
-			contexts.append(Context())
-			v = node.args[0].args[0].args[0].lower()
-			set_var(v,'INTEGER')
-			
-			st = node.args[0].args[1].args[0].type.lower()
-			if st != 'integer':
-				raise Exception, 'For requires a integer as a starting value'
-			
-			fv = node.args[2].args[0].type.lower()
-			if fv != 'integer':
-				raise Exception, 'For requires a integer as a final value'
-			
-			check(node.args[3])
-			
-			pop()
-			
-		elif node.type == 'not':
-			return check(node.args[0])
-			
-		elif node.type == "element":
-			if node.args[0].type == 'identifier':
-				return get_var(node.args[0].args[0])
-			elif node.args[0].type == 'function_call_inline':
-				return check(node.args[0])
-			else:
-				if node.args[0].type in types:
-					return node.args[0].type
-				else:
-					return check(node.args[0])
-			
-			
-		else:
-			print( "semantic missing:", node.type)'''

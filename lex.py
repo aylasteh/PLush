@@ -5,10 +5,15 @@
 # List of token names
 tokens = (
     # symbols
+    "DOUBLE_VAL",
     "DOUBLE", ## [double]
+    "FLOAT_VAL",
     "FLOAT", 
+    "INT_VAL",
     "INT", ## [int] [[int]] _allowed
+    "STRING_VAL",
     "STRING", #
+    "BOOLEAN_VAL",
     "BOOLEAN", # 'true', 'false'
     "ID", #void?
     # ignored symbols the lexer or parser shouldn't mind
@@ -54,6 +59,11 @@ tokens = (
 )
 
 reservedKeywords = (
+    "int",
+    "float",
+    "double",
+    "string",
+    "boolean",
     "if",
     "then",
     "else",
@@ -65,13 +75,13 @@ reservedKeywords = (
 
 # Regular expression rules with some actions required
 # Reads an integer value
-def t_DOUBLE(t):
-    r"\d+"
+def t_DOUBLE_VAL(t):
+    r"\d+\.\d*|\.\d+"
     t.value = float(t.value)
     return t
 
 # Reads an integer value
-def t_FLOAT(t):
+def t_FLOAT_VAL(t):
     r'\d+\.\d*|\.\d+'
     t.value = float(t.value)
     return t
@@ -96,7 +106,7 @@ def t_string(t):
 def t_string_end(t):
     r'\"'
     t.value = ''.join(t.lexer.string_buffer)
-    t.type = "STRING"
+    t.type = "STRING_VAL"
     t.lexer.begin('INITIAL')
     return t
 '''

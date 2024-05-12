@@ -7,6 +7,7 @@ from typing import Optional, List
 @dataclass
 class ASTNode(ABC):
     position: int
+    typecheck: str
 
 
 class Declaration(ASTNode):

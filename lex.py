@@ -9,12 +9,12 @@ tokens = (
     "DOUBLE", ## [double]
     "FLOAT_VAL",
     "FLOAT", 
-    "INT_VAL",
-    "INT", ## [int] [[int]] _allowed
+    "INT_VAL", ## [int] [[int]] _allowed
+    "INT",
     "STRING_VAL",
     "STRING", #
-    "BOOLEAN_VAL",
-    "BOOLEAN", # 'true', 'false'
+    "BOOLEAN",
+    "BOOLEAN_VAL",  # 'true', 'false'
     "ID", #void?
     # ignored symbols the lexer or parser shouldn't mind
     #'NEW_LINE',
@@ -87,7 +87,7 @@ def t_FLOAT_VAL(t):
     return t
 
 # Reads an integer value
-def t_INT(t):
+def t_INT_VAL(t):
     r"\d+"
     t.value = int(t.value)
     return t
@@ -223,3 +223,5 @@ if __name__ == "__main__":
         if not tok:
             break  # No more input
         print(tok)
+
+        

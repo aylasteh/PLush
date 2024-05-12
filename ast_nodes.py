@@ -21,6 +21,9 @@ class Type(ASTNode):
 class Expression(ASTNode):
     pass
 
+@dataclass
+class ExpressionList(ASTNode):
+    expr_list: [Expression] # type: ignore
 
 class Variable(ASTNode):
     pass
@@ -137,8 +140,8 @@ class AssignExp(Expression):
 @dataclass
 class IfExp(Expression):
     test: Expression
-    then_do: Expression
-    else_do: Optional[Expression]
+    then_do: ExpressionList
+    else_do: Optional[ExpressionList]
 
 
 @dataclass
@@ -181,12 +184,24 @@ class VarDeclaration(Declaration):
     initial_value: Expression
 
 @dataclass
+class VarList(ASTNode):
+    args: List[VarDeclaration]
+
+@dataclass
+class ValList(ASTNode):
+    args: List[ValDeclaration]
+
+@dataclass
 class FunctionDec(ASTNode):
     name: str
-    params: List[Field]
+    params: ValList
     param_escapes: List[bool]
     return_type: Optional[str]
-    body: Expression
+    body: ExpressionList
+
+@dataclass
+class FuncrionDecBlock(Declaration):
+    function_dec_list: List[FunctionDec]
 
 @dataclass
 class Field(ASTNode):

@@ -1,6 +1,7 @@
+
 import ast_nodes
 
-types = ['integer','real','char','string','boolean','void']
+types = ['int','real','char','string','boolean','void']
 
 class Any(object):
 	def __eq__(self,o):
@@ -8,29 +9,39 @@ class Any(object):
 	def __ne__(self,o):
 		return False
 
+
+# contexts has return value of function as name
 class Context(object):
-	def __init__(self,name=None):
-		self.variables = {}
-		self.var_count = {}
-		self.name = name
+    def __init__(self,name=None, type=None):
+        self.variables = {}
+        self.var_count = {}
+        self.name = name
+        self.type = type
+        if name != None:
+            self.set_var(name.lower(), type)
 	
-	def has_var(self,name):
-		return name in self.variables
+    def has_var(self,name):
+        return name in self.variables
 	
-	def get_var(self,name):
-		return self.variables[name]
+    def get_var(self,name):
+        return self.variables[name]
 	
-	def set_var(self,name,typ):
-		self.variables[name] = typ
-		self.var_count[name] = 0
+    def set_var(self,name,typ):
+        self.variables[name] = typ
+        self.var_count[name] = 0
+
 
 typemap = {
-      "int": 'integer',
-      "float": 'real'
 }
+
+def isreal(intype):
+      return ((intype == "float") or (intype == "double"))
+
 def totype(intype):
       if intype in typemap:
             return typemap[intype]
+      else:
+            return (intype)
       
 # The is always the global context
 contexts = [Context("global")]
@@ -42,14 +53,17 @@ functions = {
 	'writeln':('void',[
 			("a",Any())
 		]),
-	'writeint':('void',[
-			("a",'integer')
+    'print_string':('void',[
+			("a",'string')
+		]),
+	'print_int':('void',[
+			("a",'int')
 		]),
 	'writereal':('void',[
 			("a",'real')
 		]),
 	'writelnint':('void',[
-			("a",'integer')
+			("a",'int')
 		]),
 	'writelnreal':('void',[
 			("a",'real')
@@ -83,24 +97,24 @@ def has_var(varn):
 	return False
 
 def get_var(varn):
-	var = varn.lower()
-	for c in contexts[::-1]:
-		if c.has_var(var):
-			c.var_count[var] += 1
-			return c.get_var(var)
-	raise Exception( "Variable %s is referenced before assignment" )% var
+    var = varn.lower()
+    for c in contexts[::-1]:
+        if c.has_var(var):
+            c.var_count[var] += 1
+            return c.get_var(var)
+    raise Exception( "Variable %s is referenced before assignment" % var)
 	
 def set_var(varn,typ):
 	var = varn.lower()
 	check_if_function(var)
 	now = contexts[-1]
 	if now.has_var(var):
-		raise Exception( "Variable %s already defined") % var
+		raise Exception("Variable %s already defined" % var )
 	else:
-		now.set_var(var,typ.lower())
+		now.set_var(var,typ)
 	
 def get_params(node):
-	if node.type == "parameter":
+	if node.XXXXX == "parameter":
 		return [check(node.args[0])]
 	else:
 		l = []
@@ -117,127 +131,163 @@ def flatten(n):
 		for i in n.args:
 			l.extend(flatten(i))
 		return l
+
+def sem_arglist(args):
+	if isinstance(args, ast_nodes.ValVarDeclaration):
+		if isinstance(args.type, ast_nodes.ArrayExp):
+			return sem_arglist(args.type)
+		else:
+			return totype(args.type)
+	elif isinstance(args, ast_nodes.ArrayExp):
+		return [sem_arglist(args.type)]
+	else:
+		return totype(args)
 		
+		 
 
 def is_node(n):
-	return hasattr(n,"type")
+    return isinstance(n, ast_nodes.ASTNode)
 
-def check(node):
-	if not is_node(node):
-		if hasattr(node,"__iter__") and type(node) != type(""):
-			for i in node:
-				check(i)
-		else:
-			return node
-	else:
-            if node.XXXXX in ['identifier']:
-                return node.args[0]
-            elif node.XXXXX in ['var_list','statement_list','function_list']:
-                return check(node.args)
-            elif isinstance(node, ast_nodes.ExpressionList):
-                  return check(node.expr_list)
-            elif node.XXXXX in ["program","block"]:
-                contexts.append(Context())
-                check(node.args)
-                pop()
-            elif isinstance(node, ast_nodes.VarDeclaration):
+def check(node, target_basic_type=None):
+      if not is_node(node):
+            if hasattr(node,"__iter__") and type(node) != type(""):
+                  for i in node:
+                        check(i, target_basic_type)
+            else:
+                  print("returning node")
+                  return node
+      else:
+            if isinstance(node, ast_nodes.ExpressionList):
+                print(node)
+                print(f"checking for {target_basic_type}")
+                last = None
+                returntype = None
+                vallist = []
+                same = False
+                for n in node.expr_list:
+                    new_type=check(n, target_basic_type)
+                    if last == None:
+                          last = new_type
+                          same = True
+                    else:
+                          if last != new_type:
+                                same = False
+                    vallist = vallist + [new_type]
+                    returntype = last
+                print(vallist)
+                if same and len(vallist) > 1:
+                      # all expressions in list are the same and there are multiple expressions -> array
+                      returntype = [returntype]
+                print(returntype)
+                return returntype
+
+            elif isinstance(node, ast_nodes.ValVarDeclaration):
+                print(node)
                 var_name = node.name
-                var_type = totype(node.type)
+                var_type = sem_arglist(node.type)
+                basictype=var_type
+                while isinstance(basictype, list):
+                    basictype = basictype[0]
+                print(f"basictype {basictype}")
+                print(f"ValVarDeclaration {var_name} : {var_type}")
                 set_var(var_name, var_type)
-                if node.initial_value != None:
-                      init_val_type = check(node.initial_value)
+                if node.value != None:
+                      init_val_type = check(node.value, basictype)
                       if init_val_type != var_type:
-                            raise Exception("var %s (%s) is not the same type as inital value: %s" % (var_name, var_type, init_val_type))
-                
-            elif node.XXXXX in ['function','procedure']:
-                head = node.args[0]
-                name = head.args[0].args[0].lower()
-                check_if_function(name)
-                if len(head.args) == 1:
-                    args = []
+                            raise Exception("var %s (%s) is not the same type as inital value: %s (%s)" % (var_name, var_type, init_val_type, node.value))
+
+            elif isinstance(node, ast_nodes.FunctionCall):
+                print(node)
+                fun_name = node.name
+                if not fun_name.lower() in functions:
+                      raise Exception("Function %s (%s) is not in function list" % (fun_name, fun_name.lower()))
+                funinfo=functions[fun_name.lower()]
+                print(f"function call: {funinfo}")
+                fun_type = funinfo[0]
+                fun_args = funinfo[1]
+                print(f"function {fun_name}: {fun_type} <{fun_args}>")
+                # Check arguments
+                print(len(fun_args))
+                if node.args == None:
+                    raise Exception("function call needs args")
+                if isinstance(node.args, ast_nodes.EmptyExp):
+                    if len(fun_args) != 0:
+                        raise Exception("Function %s needs argumetns (%s)" % (fun_name, node.args))
                 else:
-                    args = flatten(head.args[1])
-                    args = map(lambda x: (x.args[0].args[0],x.args[1].args[0]), args)
-                if node.XXXXX == 'procedure':
-                    rettype = 'void'
-                else:
-                    rettype = head.args[-1].args[0].lower()
-                functions[name] = (rettype,args)
-                contexts.append(Context(name))
+                    if len(fun_args) != len(node.args.expr_list):
+                        raise Exception("Function Number of arguments %s (%s)" % (len(fun_args), len(node.args.expr_list)))
+                    for i in range(len(fun_args)):
+                        lt = fun_args[i][1]
+                        rt = check(node.args.expr_list[i])
+                        if lt != rt:
+                              raise Exception("Function arguments (%s) do not match %s != %s" % (i, lt, rt))
+                return fun_type
+
+            elif isinstance(node, ast_nodes.FunctionDec):
+                fun_name = node.name
+                fun_type = sem_arglist(node.return_type)
+                check_if_function(fun_name)
+                args = []
+                for i in node.params.args:
+					# TODO: args are also variables
+                    #print("var %s, %s, %s", (i, i.name, i.type))
+                    #print(sem_arglist(i))
+                    if isinstance(i, ast_nodes.EmptyExp):
+                          continue
+                    args = args + [[i.name, sem_arglist(i)]]
+                functions[fun_name.lower()] = (fun_type,args)
+                contexts.append(Context(fun_name, fun_type))
+                print(f"fun: {fun_name}: {fun_type}")
+				# fun: subtractUntilNegative2D: ['int']
+                print(args)
+				# [['array2D', [['int']]], ['numRows', 'int'], ['numCols', 'int']]
                 for i in args:
                     set_var(i[0],i[1])
-                check(node.args[1])
+                check(node.body)
                 pop()
-            elif node.XXXXX in ["function_call"]:
-                fname = node.args[0].args[0].lower()
-                if fname not in functions:
-                    raise Exception("Function %s is not defined" % fname)
-                if len(node.args) > 1:
-                    args = get_params(node.args[1])
-                else:
-                    args = []
-                rettype,vargs = functions[fname]
-                if len(args) != len(vargs):
-                    raise Exception("Function %s is expecting %d parameters and got %d" % (fname, len(vargs), len(args)))
-                else:
-                    for i in range(len(vargs)):
-                        if vargs[i][1] != args[i]:
-                            raise Exception("Parameter #%d passed to function %s should be of type %s and not %s" % (i+1,fname,vargs[i][1],args[i]))
-                return rettype
-            elif node.XXXXX in ['assign',':=']:    
-                    varn = check(node.args[0]).lower()
-                    if is_function_name(varn):
-                        vartype = functions[varn][0]
-                    else:
-                        if not has_var(varn):
-                            raise Exception("Variable %s not declared" % varn)
-                        vartype = get_var(varn)
-                    assgntype = check(node.args[1])
-                    if vartype != assgntype:
-                        raise Exception("Variable %s is of type %s and does not support %s" % (varn, vartype, assgntype))
-            elif node.XXXXX in ['&&','||']:
-                op = node.args[0].args[0]
-                for i in range(1,2):
-                    a = check(node.args[i])
-                    if a != "boolean":
-                        raise Exception("%s requires a boolean. Got %s instead." % (op,a))
+
             elif isinstance(node, ast_nodes.OpExp):
                 op = node.oper
-                vt1 = check(node.left)
-                vt2 = check(node.right)
-                if vt1 != vt2:
-                    raise Exception("Arguments of operation '%s' must be of the same type. Got %s and %s." % (op,vt1,vt2))
+                vt1 = check(node.left, target_basic_type)
+                vt2 = check(node.right, target_basic_type)
+                if op == ast_nodes.Oper.notop:
+                      if vt2 != 'boolean':
+                        raise Exception("Arguments of operation '%s' must be boolean got %s." % (op, vt2))
+                      return vt2
                 if op in [ast_nodes.Oper.plus, ast_nodes.Oper.minus,
                           ast_nodes.Oper.times, ast_nodes.Oper.divide]:
-                    if vt1 != 'integer':
-                        raise Exception("Operation %s requires integers." % op)
+                    if vt1 != 'int' and not isreal(vt1):
+                        raise Exception("Operation %s requires numbers." % op)
+                    if vt2 != 'int' and not isreal(vt2):
+                        raise Exception("Operation %s requires numbers." % op)
+                    if vt1 == 'int':
+                          return vt2
+                    else:
+                          return vt1
                 if op == ast_nodes.Oper.divide:
-                    if vt1 != 'real':
-                        raise Exception("Operation %s requires reals." % op)
+                    if not isreal(vt1):
+                        raise Exception("Operation %s requires float or double." % op)
+                if vt1 != vt2:
+                    print(node)
+                    raise Exception("Arguments of operation '%s' must be of the same type. Got %s and %s." % (op,vt1,vt2))
+                if op == ast_nodes.Oper.mod:
+                    if vt2 != 'int' or vt1 != 'int':
+                        raise Exception("Operation %s int." % op)
                 if op in [ast_nodes.Oper.lt, ast_nodes.Oper.gt,
                           ast_nodes.Oper.ge, ast_nodes.Oper.le,
                             ast_nodes.Oper.eq, ast_nodes.Oper.neq ]:
                     return 'boolean'
                 else:
+                    #print("return %s" % (vt1))
                     return vt1    
-            elif node.XXXXX in ['if','while','repeat','elif']:
-                if node.XXXXX == 'repeat':
-                    c = 1
-                else:
-                    c = 0
-                t = check(node.test)
-                if t != 'boolean':
-                    raise Exception("%s condition requires a boolean. Got %s instead." % (node.XXXXX,t))
-                # check body
-                check(node.then_do)
-                # check else
-                if node.else_do != None:
-                    check(node.else_do)
+
             elif isinstance(node, ast_nodes.WhileExp):
+                #print(node.test)
                 test_type = check(node.test)
                 if test_type != 'boolean':
                         raise Exception("%s condition requires a boolean. Got %s instead." % ("While",test_type))
                 check(node.body)
+
             elif isinstance(node, ast_nodes.IfExp):
                 test_type = check(node.test)
                 if test_type != 'boolean':
@@ -245,25 +295,78 @@ def check(node):
                 check(node.then_do)
                 if node.else_do != None:
                       check(node.else_do)
-        
-            elif node.XXXXX == '!':
-                return check(node.args[0])
+
+            elif isinstance(node, ast_nodes.ArrayExp):
+                    if isinstance(node.type, ast_nodes.FunctionCall):
+                        ret_type = check(node.type)
+                    else:
+                        ret_type = get_var(node.type)
+                    if node.size != None:
+                        # Index is an expression list a[1][2]
+                        for exp in node.size.expr_list:
+                            exp_type = check(exp)
+                            if exp_type != 'int':
+                                raise Exception("Array Index must be integer. Got %s (%s) instead." % (exp_type, exp))
+                            ret_type = ret_type[0]
+                    return ret_type
+
+            elif isinstance(node, ast_nodes.VarExp):
+                  #print(f"VarExp: {node}")
+                  #print("VarExp: type: ", get_var(node.var))
+                  return get_var(node.var)
+
+            elif isinstance(node, ast_nodes.AssignExp):
+                  #print(f"AssignExp: {node}")
+                  lt = check(node.var)
+                  rt = check(node.exp)
+                  print(f"AssignExp: left = {lt} right = {rt} ")
+                  return lt
+
             elif isinstance(node, ast_nodes.IntExp):
-                  return "integer"
+                  if target_basic_type in ["float", "double"]:
+                        return target_basic_type
+                  return "int"
+
             elif isinstance(node, ast_nodes.FloatExp):
-                  return "float"
- ### TODO           elif isinstance(node, ast_nodes.DoubleExp):
- ### TODO                return "float"
+                if target_basic_type in ["double"]:
+                        return target_basic_type
+                return "float"
+
+### TODO           elif isinstance(node, ast_nodes.DoubleExp):
+### TODO                return "double"
+
             elif isinstance(node, ast_nodes.BoolExp):
                   return "boolean"
+
             elif isinstance(node, ast_nodes.StringExp):
                   return "string"
-            elif node.XXXXX == "element":
-                if node.type == 'identifier':
-                    return get_var(node.args[0].args[0])
-                elif node.type == 'function_call_inline':
-                    return check(node.args[0])
-                else:
-                    return check(node.args[0])
+
+            elif isinstance(node, ast_nodes.EmptyExp):
+                  return None
+
             else:
                 print( "semantic missing:", type(node))	
+
+'''
+#Todo
+# not used ValueDec
+# not used VariableDec
+# AssignExp
+# EmptyExp
+ValVarList
+#FunctionCall
+'''
+
+'''
+#Unused DataTypes
+#DeclarationBlock
+#Field
+#RecordTy
+#ArrayTy
+#ValExp
+#NilExp
+#ValDeclaration
+#VarDeclaration
+#VarList
+#ValList
+'''

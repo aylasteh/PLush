@@ -1,1 +1,3 @@
-while ( 5 = 5 ) { y = x + 1; y = x + 2; }
+function main ():int {
+    f1 := 5 * 4 ;
+}

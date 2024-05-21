@@ -31,7 +31,7 @@ tokens = (
     "RBRACK", 
     "LBRACE", 
     "RBRACE", 
-    #"CARET",
+    "CARET",
     "PLUS", 
     "MINUS", 
     "TIMES", 
@@ -48,7 +48,7 @@ tokens = (
     "PERCENT", 
     #"UNDERSCORE",
     # keywords
-    #"ARRAY",
+    #"ARRAY",ID
     "IF", 
     #"THEN", 
     "ELSE", 
@@ -56,6 +56,12 @@ tokens = (
     "FUNCTION", 
     "VAR",
     "VAL",
+    "VOID",
+    "NOT",
+)
+
+states = (
+    ('string', 'exclusive'),
 )
 
 reservedKeywords = (
@@ -70,17 +76,18 @@ reservedKeywords = (
     "while",
     "function",
     "var",
-    "val"
+    "val",
+    "void"
 )
 
 # Regular expression rules with some actions required
-# Reads an integer value
+# Reads a double value
 def t_DOUBLE_VAL(t):
-    r"\d+\.\d*|\.\d+"
+    r"\d+\.\d*|\.\d+|\-\d+\.\d*"
     t.value = float(t.value)
     return t
 
-# Reads an integer value
+# Reads a float value
 def t_FLOAT_VAL(t):
     r'\d+\.\d*|\.\d+'
     t.value = float(t.value)
@@ -88,13 +95,14 @@ def t_FLOAT_VAL(t):
 
 # Reads an integer value
 def t_INT_VAL(t):
-    r"\d+"
-    t.value = int(t.value)
+    r"\d+[\d\_]*|\-\d+[\d\_]*"
+    t.value = int(t.value.replace("_",""))
     return t
 
-
-#TODO String not working
-
+# Reads a boolean value
+def t_BOOLEAN_VAL(t):
+    r"true|false"
+    return t
 
 # Reads a string
 def t_string(t):
@@ -109,7 +117,7 @@ def t_string_end(t):
     t.type = "STRING_VAL"
     t.lexer.begin('INITIAL')
     return t
-'''
+
 def t_string_content(t):
     r'[^\\"]+'
     t.lexer.string_buffer.extend(t.value)
@@ -124,21 +132,22 @@ def t_string_escape(t):
         '\\': '\\'
     }
     # Append the correct character to the buffer
-    t.lexer.string_buffer.append(escape_sequences.get(t.value[1], t.value[1]))'''
+    t.lexer.string_buffer.append(escape_sequences.get(t.value[1], t.value[1]))
 
-'''
 def t_string_error(t):
     print(f"Illegal character in the string: {t.value[0]}")
     t.lexer.skip(1)
 
+'''
 # Error handling rule for the initial state
 def t_error(t):
     print("Illegal character '%s'" % t.value[0])
-    t.lexer.skip(1)'''
+    t.lexer.skip(1)
+'''
 
 
 def t_ID(t):
-    r"[a-zA-Z][a-zA-Z_0-9]*"
+    r"[a-zA-Z_][a-zA-Z_0-9_]*"
     if t.value in reservedKeywords:
         t.type = t.value.upper()
     return t
@@ -147,6 +156,10 @@ def t_ID(t):
 def t_comment(t):
     r'\#.*'
     pass  # Ignore the comment
+
+def t_newline(t):
+    r'\n+'
+    t.lexer.lineno += len(t.value)
 
 # Regular expression rules for simple tokens
 t_COMMA = r"\,"
@@ -158,12 +171,12 @@ t_LBRACK = r"\["
 t_RBRACK = r"\]"
 t_LBRACE = r"\{"
 t_RBRACE = r"\}"
-#t_CARET = r"\^"
+t_CARET = r"\^"
 t_PLUS = r"\+"
 t_MINUS = r"\-"
 t_TIMES = r"\*"
 t_DIVIDE = r"\/"
-t_EQ = r"\="
+t_EQ = r"\=\="
 t_NEQ = r"\!\="
 t_LT = r"\<"
 t_LE = r"\<\="
@@ -174,6 +187,7 @@ t_OR = r"\|\|"
 t_ASSIGN = r"\:\="
 t_PERCENT = r"\%"
 #t_UNDERSCORE = r"\_"
+t_NOT = r"\!"
 
 
 #TODO implement
@@ -213,6 +227,9 @@ if __name__ == "__main__":
     data = ''' x
     3 + 4 * 10
     + -20 *2
+    1.1
+    -1.1
+    -22
     '''
 
     lex.input(data)
@@ -223,5 +240,3 @@ if __name__ == "__main__":
         if not tok:
             break  # No more input
         print(tok)
-
-        

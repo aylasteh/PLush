@@ -12,23 +12,28 @@ class Any(object):
 
 # contexts has return value of function as name
 class Context(object):
-    def __init__(self,name=None, type=None):
+    def __init__(self,name=None, type=None, isval=False):
         self.variables = {}
         self.var_count = {}
+        self.is_val = {}
         self.name = name
         self.type = type
         if name != None:
-            self.set_var(name.lower(), type)
+            self.set_var(name.lower(), type, isval)
 	
     def has_var(self,name):
         return name in self.variables
 	
     def get_var(self,name):
         return self.variables[name]
+    
+    def get_isval(self, name):
+          return self.is_val[name]
 	
-    def set_var(self,name,typ):
+    def set_var(self,name,typ, isval):
         self.variables[name] = typ
         self.var_count[name] = 0
+        self.is_val[name] = isval
 
 
 typemap = {
@@ -103,16 +108,34 @@ def get_var(varn):
             c.var_count[var] += 1
             return c.get_var(var)
     raise Exception( "Variable %s is referenced before assignment" % var)
+
+
+def get_isval(varn):
+    var = varn.lower()
+    for c in contexts[::-1]:
+        if c.has_var(var):
+            return c.get_isval(var)
+    raise Exception( "Variable %s is referenced before assignment" % var)
 	
-def set_var(varn,typ):
+def set_var(varn,typ, isval):
 	var = varn.lower()
 	check_if_function(var)
 	now = contexts[-1]
 	if now.has_var(var):
 		raise Exception("Variable %s already defined" % var )
 	else:
-		now.set_var(var,typ)
-	
+		now.set_var(var,typ, isval)
+
+def set_funvar(varn, typ, args):
+    var = varn.lower()
+    now = contexts[-1]
+    if now.has_var(var):
+        raise Exception("function %s already defined" % var )
+    else:
+        functions[var] = (typ,args)
+        now.set_var(var,typ, False)
+        
+'''	
 def get_params(node):
 	if node.XXXXX == "parameter":
 		return [check(node.args[0])]
@@ -121,7 +144,8 @@ def get_params(node):
 		for i in node.args:
 			l.extend(get_params(i))
 		return l
-		
+'''
+
 def flatten(n):
 	if not is_node(n): return [n]
 	if not n.type.endswith("_list"):
@@ -134,19 +158,17 @@ def flatten(n):
 
 def sem_arglist(args):
 	if isinstance(args, ast_nodes.ValVarDeclaration):
-		if isinstance(args.type, ast_nodes.ArrayExp):
-			return sem_arglist(args.type)
-		else:
-			return totype(args.type)
+		return sem_arglist(args.type)
 	elif isinstance(args, ast_nodes.ArrayExp):
 		return [sem_arglist(args.type)]
 	else:
 		return totype(args)
-		
+# TODO check init values		
 		 
 
 def is_node(n):
     return isinstance(n, ast_nodes.ASTNode)
+
 
 def check(node, target_basic_type=None):
       if not is_node(node):
@@ -158,6 +180,7 @@ def check(node, target_basic_type=None):
                   return node
       else:
             if isinstance(node, ast_nodes.ExpressionList):
+			# TODO complete
                 print(node)
                 print(f"checking for {target_basic_type}")
                 last = None
@@ -190,7 +213,7 @@ def check(node, target_basic_type=None):
                     basictype = basictype[0]
                 print(f"basictype {basictype}")
                 print(f"ValVarDeclaration {var_name} : {var_type}")
-                set_var(var_name, var_type)
+                set_var(var_name, var_type, node.isval)
                 if node.value != None:
                       init_val_type = check(node.value, basictype)
                       if init_val_type != var_type:
@@ -218,9 +241,9 @@ def check(node, target_basic_type=None):
                         raise Exception("Function Number of arguments %s (%s)" % (len(fun_args), len(node.args.expr_list)))
                     for i in range(len(fun_args)):
                         lt = fun_args[i][1]
-                        rt = check(node.args.expr_list[i])
+                        rt = check(node.args.expr_list[i], lt)
                         if lt != rt:
-                              raise Exception("Function arguments (%s) do not match %s != %s" % (i, lt, rt))
+                              raise Exception("Function arguments (%s) do not match %s = %s" % (i, lt, rt))
                 return fun_type
 
             elif isinstance(node, ast_nodes.FunctionDec):
@@ -234,15 +257,19 @@ def check(node, target_basic_type=None):
                     #print(sem_arglist(i))
                     if isinstance(i, ast_nodes.EmptyExp):
                           continue
-                    args = args + [[i.name, sem_arglist(i)]]
-                functions[fun_name.lower()] = (fun_type,args)
+                    args = args + [[i.name, sem_arglist(i), i.isval]]
+                #functions[fun_name.lower()] = (fun_type,args)
+                set_funvar(fun_name, fun_type, args)
                 contexts.append(Context(fun_name, fun_type))
                 print(f"fun: {fun_name}: {fun_type}")
 				# fun: subtractUntilNegative2D: ['int']
                 print(args)
+                node.arg_types = args
 				# [['array2D', [['int']]], ['numRows', 'int'], ['numCols', 'int']]
+
+                print("after set")
                 for i in args:
-                    set_var(i[0],i[1])
+                    set_var(i[0],i[1], i[2])
                 check(node.body)
                 pop()
 
@@ -253,6 +280,7 @@ def check(node, target_basic_type=None):
                 if op == ast_nodes.Oper.notop:
                       if vt2 != 'boolean':
                         raise Exception("Arguments of operation '%s' must be boolean got %s." % (op, vt2))
+                      node.sem_type = vt2
                       return vt2
                 if op in [ast_nodes.Oper.plus, ast_nodes.Oper.minus,
                           ast_nodes.Oper.times, ast_nodes.Oper.divide]:
@@ -261,8 +289,10 @@ def check(node, target_basic_type=None):
                     if vt2 != 'int' and not isreal(vt2):
                         raise Exception("Operation %s requires numbers." % op)
                     if vt1 == 'int':
+                          node.sem_type = vt2
                           return vt2
                     else:
+                          node.sem_type = vt1
                           return vt1
                 if op == ast_nodes.Oper.divide:
                     if not isreal(vt1):
@@ -276,9 +306,12 @@ def check(node, target_basic_type=None):
                 if op in [ast_nodes.Oper.lt, ast_nodes.Oper.gt,
                           ast_nodes.Oper.ge, ast_nodes.Oper.le,
                             ast_nodes.Oper.eq, ast_nodes.Oper.neq ]:
+                    
+                    node.sem_type = 'boolean'
                     return 'boolean'
                 else:
                     #print("return %s" % (vt1))
+                    node.sem_type = vt1
                     return vt1    
 
             elif isinstance(node, ast_nodes.WhileExp):
@@ -312,19 +345,25 @@ def check(node, target_basic_type=None):
 
             elif isinstance(node, ast_nodes.VarExp):
                   #print(f"VarExp: {node}")
-                  #print("VarExp: type: ", get_var(node.var))
+                  print("VarExp: type: ", get_var(node.var))
                   return get_var(node.var)
 
             elif isinstance(node, ast_nodes.AssignExp):
                   #print(f"AssignExp: {node}")
                   lt = check(node.var)
-                  rt = check(node.exp)
-                  print(f"AssignExp: left = {lt} right = {rt} ")
+                  if isinstance(node.var, ast_nodes.VarExp):
+                        if get_isval(node.var.var):
+                              raise Exception("Assigning a val %s (%s) instead." % (node.var.var, node.exp))
+                  rt = check(node.exp, lt)
+                  print(node)
+                  print(f"This AssignExp: left = {lt} right = {rt} ")
                   return lt
 
             elif isinstance(node, ast_nodes.IntExp):
                   if target_basic_type in ["float", "double"]:
+                        node.sem_type = target_basic_type
                         return target_basic_type
+                  node.sem_type = "int"
                   return "int"
 
             elif isinstance(node, ast_nodes.FloatExp):

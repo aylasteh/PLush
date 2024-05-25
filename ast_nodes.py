@@ -107,7 +107,7 @@ class FloatExp(Expression):
 @dataclass
 class IntExp(Expression):
     int: int
-
+    sem_type: str = None
 
 @dataclass
 class StringExp(Expression):
@@ -154,6 +154,7 @@ class OpExp(Expression):
     oper: Oper
     left: Expression
     right: Expression
+    sem_type: str = None
 
 
 
@@ -202,6 +203,7 @@ class FunctionDec(ASTNode):
     param_escapes: List[bool]
     return_type: Optional[str]
     body: ExpressionList
+    arg_types: List[str]
 
 @dataclass
 class ArgsList(ASTNode):

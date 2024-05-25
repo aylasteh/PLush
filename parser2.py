@@ -164,9 +164,9 @@ def p_function_decl(p):
                   | FUNCTION ID LPAREN val_var_decl_list RPAREN SEMICOLON
     """
     if len(p) > 7:
-        p[0] = Node.FunctionDec(position=p.lineno(1), name=p[2], params=p[4], return_type=p[7], param_escapes=None, body=p[8] if p[8] != ";" else None)
+        p[0] = Node.FunctionDec(position=p.lineno(1), name=p[2], params=p[4], return_type=p[7], param_escapes=None, arg_types=None, body=p[8] if p[8] != ";" else None)
     else:
-        p[0] = Node.FunctionDec(position=p.lineno(1), name=p[2], params=p[4], return_type=None, param_escapes=None, body=p[6] if p[6] != ";" else None)
+        p[0] = Node.FunctionDec(position=p.lineno(1), name=p[2], params=p[4], return_type=None, param_escapes=None, arg_types=None, body=p[6] if p[6] != ";" else None)
 
 def p_type_spec(p):
     """
@@ -481,11 +481,11 @@ parser = yacc.yacc()
 #arr=["test1.pl", "test2.pl", "test3.pl"]
 #arr=["minAndMax.pl"]
 #arr=["maxRangesquared.pl"]
-#arr=["manipulateArrays.pl"]
+arr=["manipulateArrays.pl"]
 #arr=["quicksort.pl"]
 arr=["test1.pl"]
 
-
+parsed_output = None
 for file_iter in arr:
     with open(file_iter, 'r') as infile:
         input_string = infile.read()
@@ -497,12 +497,17 @@ for file_iter in arr:
         print(semantic.check(parsed_output))
     except SyntacticError as e:
         print(f"Syntax error: {e}")
+        parsed_output = None
     except Exception as e:
         print("Exception:")
         print(e)
         print(type(e))
+        parsed_output = None
         print("Continuing with next file")
         
+if parsed_output == None:
+    print("error parsing")
+    exit ()
 
 # For now disable the llvm example
 

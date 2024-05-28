@@ -7,6 +7,16 @@ import llvmlite.binding as llvm
 
 import ast_nodes
 
+
+type_i8  = ir.IntType(8)
+type_i32 =  ir.IntType(32)
+type_dbl = ir.DoubleType()
+type_pi8 = type_i8.as_pointer()
+type_char = type_i8
+type_str = type_char.as_pointer()
+type_pi32 = type_i32.as_pointer()
+
+
 # get the semantic type
 # in noe is set try the type
 # otherwise None
@@ -23,33 +33,110 @@ class codeg(object):
         self.module = ir.Module()
         self.builder = None
         self.func_symtab = {}
+        self.count = 0
+        self.add_builtins(self.module)
+
+    def add_builtins(self, module):
+        # The C++ tutorial adds putchard() simply by defining it in the host C++
+        # code, which is then accessible to the JIT. It doesn't work as simply
+        # for us; but luckily it's very easy to define new "C level" functions
+        # for our JITed code to use - just emit them as LLVM IR. This is what
+        # this method does.
+
+        # Add the declaration of puts
+        puts_ty = ir.FunctionType(type_i32, [type_str])
+        puts = ir.Function(module, puts_ty, 'puts')
+
+        # Add the declaration of putchar
+        putchar_ty = ir.FunctionType(type_i32, [type_i32])
+        putchar = ir.Function(module, putchar_ty, 'putchar')
+
+        # Add putchard
+        putchard_ty = ir.FunctionType(type_dbl, [type_dbl])
+        putchard = ir.Function(module, putchard_ty, 'putchard')
+        irbuilder = ir.IRBuilder(putchard.append_basic_block('entry'))
+        ival = irbuilder.fptoui(putchard.args[0], type_i32, 'intcast')
+        irbuilder.call(putchar, [ival])
+        irbuilder.ret(ir.Constant(type_dbl, 0))
 
     def _create_entry_block_alloca(self, name, type):
         """Create an alloca in the entry BB of the current function."""
         builder = ir.IRBuilder()
         builder.position_at_start(self.builder.function.entry_basic_block)
         if type == "float":
-            return builder.alloca(ir.DoubleType(), size=None, name=name)
+            return builder.alloca(type_dbl, size=None, name=name)
+        elif type == "string":
+            return builder.alloca(type_str, size=None, name=name)
         else:
-            return builder.alloca(ir.IntType(32), size=None, name=name)
+            return builder.alloca(type_i32, size=None, name=name)
 
     def codegen(self, node):
 
         if isinstance(node, ast_nodes.IntExp):
-            print(f"IntExp-semtype = {node.int} {node.sem_type}")
+            # print(f"IntExp-semtype = {node.int} {node.sem_type}")
             if node.sem_type == "float":
-                return ir.Constant(ir.DoubleType(), float(node.int))
+                return ir.Constant(type_dbl, float(node.int))
             else:
-                return ir.Constant(ir.IntType(32), node.int)
+                return ir.Constant(type_i32, node.int)
         
         elif isinstance(node, ast_nodes.FloatExp):
-            return ir.Constant(ir.DoubleType(), float(node.value))
+            return ir.Constant(type_dbl, float(node.value))
+        
+        elif isinstance(node, ast_nodes.BoolExp):
+            return ir.Constant(type_i32, 1 if node.value == True else 0)
+        
+        elif isinstance(node, ast_nodes.StringExp):
+            # strings are a pointer to int(8)
+            # allocate the space Global
+            # then gep will work. gep returns the pointer to an index
+            loc_type = ir.ArrayType(type_char, len(node.string) + 1)                            
+            location= ir.Constant(loc_type, bytearray(node.string.encode()) + b'\x00')
+            nl = ir.GlobalVariable(self.module, loc_type, name="string."+str(self.count))
+            self.count = self.count + 1
+            nl.initializer=location
+            nl.global_constant=True
+            d = nl.gep([ir.Constant(type_char, 0)]).bitcast(type_str)
+            return d
 
+
+        elif isinstance(node, ast_nodes.WhileExp):
+        
+            saved_block = self.builder.block
+
+            loop_bb = self.builder.function.append_basic_block('loop')
+
+            # Insert an explicit fall through from the current block to loop_bb
+            self.builder.branch(loop_bb)
+            self.builder.position_at_start(loop_bb)
+
+
+            # Emit the body of the loop. This, like any other expr, can change the
+            # current BB. Note that we ignore the value computed by the body.
+            body_val = self.codegen(node.body)
+
+            # Compute the end condition
+            endcond = self.codegen(node.test)
+            cmp = self.builder.icmp_signed(
+                '!=', endcond, ir.Constant(type_i32, 0),
+                'loopcond')
+
+            # Create the 'after loop' block and insert it
+            after_bb = self.builder.function.append_basic_block('afterloop')
+
+            # Insert the conditional branch into the end of loop_end_bb
+            self.builder.cbranch(cmp, loop_bb, after_bb)
+
+            # New code will be inserted into after_bb
+            self.builder.position_at_start(after_bb)
+
+            # The 'while' expression always returns 0
+            return ir.Constant(type_dbl, 0.0)
+    
         elif isinstance(node, ast_nodes.IfExp):
                     # Emit comparison value
             cond_val = self.codegen(node.test)
-            cmp = self.builder.fcmp_ordered(
-                '!=', cond_val, ir.Constant(ir.DoubleType(), 0.0))
+            cmp = self.builder.icmp_signed(
+                '!=', cond_val, ir.Constant(type_i32, 0))
 
             # Create basic blocks to express the control flow, with a conditional
             # branch to either then_bb or else_bb depending on cmp. else_bb and
@@ -64,6 +151,7 @@ class codeg(object):
             # Emit the 'then' part
             self.builder.position_at_start(then_bb)
             then_val = self.codegen(node.then_do)
+            then_val = ir.Constant(type_i32, 0)
             self.builder.branch(merge_bb)
 
             # Emission of then_val could have modified the current basic block. To
@@ -75,8 +163,9 @@ class codeg(object):
             self.builder.position_at_start(else_bb)
             if node.else_do != None:
                 else_val = self.codegen(node.else_do)
+                else_val = ir.Constant(type_i32, 0)
             else:
-                else_val = ir.Constant(ir.DoubleType(), float(1.0))
+                else_val = ir.Constant(type_i32, 0)
 
             # Emission of else_val could have modified the current basic block.
             else_bb = self.builder.block
@@ -85,7 +174,7 @@ class codeg(object):
             # Emit the merge ('ifcnt') block
             self.builder.function.basic_blocks.append(merge_bb)
             self.builder.position_at_start(merge_bb)
-            phi = self.builder.phi(ir.DoubleType(), 'iftmp')
+            phi = self.builder.phi(type_i32, 'iftmp')
             phi.add_incoming(then_val, then_bb)
             phi.add_incoming(else_val, else_bb)
             return phi
@@ -109,9 +198,13 @@ class codeg(object):
                 init_val = self.codegen(node.value)
             else:
                 if node.type == "float":
-                    init_val = ir.Constant(ir.DoubleType(), 0.0)
+                    init_val = ir.Constant(type_dbl, None)
+                elif node.type == "string":
+                    
+                    #location = ir.Constant(ir.ArrayType(ir.IntType(8), 8), bytearray("        ".encode("utf8")))
+                    init_val = ir.Constant(type_str, None)
                 else:
-                    init_val = ir.Constant(ir.IntType(32), 0)
+                    init_val = ir.Constant(type_i32, None)
             
             saved_block = self.builder.block
             var_addr = self._create_entry_block_alloca(node.name, node.type)
@@ -129,7 +222,7 @@ class codeg(object):
             #    raise Exception('Call argument length mismatch', node.name)
             call_args = [self.codegen(arg) for arg in node.args.expr_list]
             #call_args = []
-            print(f"callargs: {call_args}")
+            # print(f"callargs: {call_args}")
             return self.builder.call(callee_func, call_args, 'calltmp')
         elif isinstance(node, ast_nodes.ExpressionList):
             for n in node.expr_list:
@@ -143,55 +236,73 @@ class codeg(object):
             arglist = []
             for iter in node.arg_types:
                 if iter[1] == "float":
-                    arglist = arglist + [ir.DoubleType()]
+                    arglist = arglist + [type_dbl]
+                elif iter[1] == "string":
+                    # arglist = arglist + [ir.ArrayType(ir.IntType(8),8)]
+                    arglist = arglist + [type_str]
                 else:
-                    arglist = arglist + [ir.IntType(32)]
-            print(f"ARGLIST: {arglist}")
+                    arglist = arglist + [type_i32]
+            # print(f"ARGLIST: {arglist}")
             if node.return_type == "float":
-                func_ty = ir.FunctionType(ir.DoubleType(),
+                func_ty = ir.FunctionType(type_dbl,
                                     arglist)
+            elif node.return_type == "string":
+                # func_ty = ir.FunctionType(ir.ArrayType(ir.IntType(8),8), arglist)
+                func_ty = ir.FunctionType(type_str, arglist)
             else:
-                func_ty = ir.FunctionType(ir.IntType(32),
+                func_ty = ir.FunctionType(type_i32,
                                     arglist)
             func = ir.Function(self.module, func_ty, funcname)
 
-            print(f"func: {func.args}")
+            # print(f"func: {func.args}")
 
             bb_entry = func.append_basic_block('entry')
             self.builder = ir.IRBuilder(bb_entry)
 
-            print(f"func:arg_types {node.arg_types}")
+            # print(f"func:arg_types {node.arg_types}")
             for i, iter in enumerate(func.args):
                 if node.arg_types[i][1] == "float":
-                    alloca = self.builder.alloca(ir.DoubleType(), name=node.arg_types[i][0])
+                    alloca = self.builder.alloca(type_dbl, name=node.arg_types[i][0])
+                elif node.arg_types[i][1] == "string":
+                    # alloca = self.builder.alloca(ir.ArrayType(ir.IntType(8),8), name=node.arg_types[i][0])
+                    alloca = self.builder.alloca(type_str, name=node.arg_types[i][0])               
                 else:
-                    alloca = self.builder.alloca(ir.IntType(32), name=node.arg_types[i][0])
+                    alloca = self.builder.alloca(type_i32, name=node.arg_types[i][0])
                 self.builder.store(iter, alloca)
                 self.func_symtab[node.arg_types[i][0]] = alloca
-                print(f"func args: {alloca}")
+                # print(f"func args: {alloca}")
 
-            if node.return_type == "float":            
-                arg = ir.Constant(ir.DoubleType(), 0.0)
-                alloca = self.builder.alloca(ir.DoubleType(), name=node.name)
-            else:
-                arg = ir.Constant(ir.IntType(32), 0)
-                alloca = self.builder.alloca(ir.IntType(32), name=node.name)
-            
-            self.builder.store(arg, alloca)
-            self.func_symtab[node.name] = alloca
+            if node.return_type != None:
+                if node.return_type == "float":            
+                    arg = ir.Constant(type_dbl, 0.0)
+                    func_var = self.builder.alloca(type_dbl, name=node.name)
+                else:
+                    arg = ir.Constant(type_i32, 0)
+                    func_var = self.builder.alloca(type_i32, name=node.name)
+                
+                self.builder.store(arg, func_var)
+                self.func_symtab[node.name] = func_var
 
             body = self.codegen(node.body)
-
-            self.builder.ret(body)
+            
+            if node.return_type != None:
+                self.builder.ret(self.builder.load(func_var, node.name))
+            else:
+                self.builder.ret_void()
             return func
         elif isinstance(node, ast_nodes.OpExp):
-            print(f"opnode.semtype {node.sem_type}")
-            left = self.codegen(node.left)
-            leftsemtype = getsemtype(node.left)
-            print(f"left semtype: {leftsemtype}")
+            # print(f"opnode.semtype {node.sem_type}")
+
             rightsemtype = getsemtype(node.left)
-            print(f"right semtype: {rightsemtype}")
+            # print(f"right semtype: {rightsemtype}")
             right = self.codegen(node.right)
+            if node.oper != ast_nodes.Oper.notop:
+                left = self.codegen(node.left)
+                leftsemtype = getsemtype(node.left)
+                # print(f"left semtype: {leftsemtype}")
+            else:
+                return self.builder.icmp_unsigned('!=', ir.Constant(type_i32, 1), right, 'nottmp')
+            
             if node.sem_type == "float":
                 if node.oper == ast_nodes.Oper.plus:
                     return self.builder.fadd(left, right, 'addtmp')
@@ -200,24 +311,44 @@ class codeg(object):
                 elif node.oper == ast_nodes.Oper.times:
                     return self.builder.fmul(left, right, 'multmp')
             if node.sem_type == "boolean":
-                if node.oper == ast_nodes.Oper.lt:
-                    cmp = self.builder.fcmp_unordered('<', left, right, 'cmptmp')
-                    return self.builder.uitofp(cmp, ir.DoubleType(), 'booltmp')
-                elif node.oper == ast_nodes.Oper.gt:
-                    cmp = self.builder.fcmp_unordered('>', left, right, 'cmptmp')
-                    return self.builder.uitofp(cmp, ir.DoubleType(), 'booltmp')
-                elif node.oper == ast_nodes.Oper.eq:
-                    cmp = self.builder.fcmp_unordered('==', left, right, 'cmptmp')
-                    return self.builder.uitofp(cmp, ir.DoubleType(), 'booltmp')
-                elif node.oper == ast_nodes.Oper.neq:
-                    cmp = self.builder.fcmp_unordered('!=', left, right, 'cmptmp')
-                    return self.builder.uitofp(cmp, ir.DoubleType(), 'booltmp')
-                elif node.oper == ast_nodes.Oper.ge:
-                    cmp = self.builder.fcmp_unordered('>=', left, right, 'cmptmp')
-                    return self.builder.uitofp(cmp, ir.DoubleType(), 'booltmp')
-                elif node.oper == ast_nodes.Oper.le:
-                    cmp = self.builder.fcmp_unordered('<=', left, right, 'cmptmp')
-                    return self.builder.uitofp(cmp, ir.DoubleType(), 'booltmp')
+                if leftsemtype == "float":
+                    if node.oper == ast_nodes.Oper.lt:
+                        cmp = self.builder.fcmp_unordered('<', left, right, 'cmptmp')
+                        return cmp
+                    elif node.oper == ast_nodes.Oper.gt:
+                        cmp = self.builder.fcmp_unordered('>', left, right, 'cmptmp')
+                        return cmp
+                    elif node.oper == ast_nodes.Oper.eq:
+                        cmp = self.builder.fcmp_unordered('==', left, right, 'cmptmp')
+                        return cmp
+                    elif node.oper == ast_nodes.Oper.neq:
+                        cmp = self.builder.fcmp_unordered('!=', left, right, 'cmptmp')
+                        return cmp
+                    elif node.oper == ast_nodes.Oper.ge:
+                        cmp = self.builder.fcmp_unordered('>=', left, right, 'cmptmp')
+                        return cmp
+                    elif node.oper == ast_nodes.Oper.le:
+                        cmp = self.builder.fcmp_unordered('<=', left, right, 'cmptmp')
+                        return cmp
+                else:
+                    if node.oper == ast_nodes.Oper.lt:
+                        cmp = self.builder.icmp_unsigned('<', left, right, 'cmptmp')
+                        return cmp
+                    elif node.oper == ast_nodes.Oper.gt:
+                        cmp = self.builder.icmp_unsigned('>', left, right, 'cmptmp')
+                        return cmp
+                    elif node.oper == ast_nodes.Oper.eq:
+                        cmp = self.builder.icmp_unsigned('==', left, right, 'cmptmp')
+                        return cmp
+                    elif node.oper == ast_nodes.Oper.neq:
+                        cmp = self.builder.icmp_unsigned('!=', left, right, 'cmptmp')
+                        return cmp
+                    elif node.oper == ast_nodes.Oper.ge:
+                        cmp = self.builder.icmp_unsigned('>=', left, right, 'cmptmp')
+                        return cmp
+                    elif node.oper == ast_nodes.Oper.le:
+                        cmp = self.builder.icmp_unsigned('<=', left, right, 'cmptmp')
+                        return cmp
                 
             else:
                 if node.oper == ast_nodes.Oper.plus:

@@ -84,6 +84,7 @@ class VariableDec(Declaration):
 @dataclass
 class VarExp(Expression):
     var: Variable
+    sem_type: str = None
 
 '''
 @dataclass
@@ -119,12 +120,6 @@ class AssignExp(Expression):
     var: Variable
     exp: Expression
 
-
-
-@dataclass
-class ArrayType(ASTNode):
-    array: Expression
-
 @dataclass
 class IfExp(Expression):
     test: Expression
@@ -143,6 +138,7 @@ class ArrayExp(Expression):
     type: str
     size: Expression
     init: Expression
+    dimension: List[int]
 
 
 @dataclass
@@ -167,6 +163,7 @@ class ValVarDeclaration(Declaration):
     name: str
     type: Type
     value: Expression
+    complex_type: str = ""
 
 '''  
 @dataclass

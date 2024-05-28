@@ -1,5 +1,4 @@
 
-
 # Get the filename last on commad line
 # splush [--tree] <filename>
 file=${*: -1:1}
@@ -8,7 +7,7 @@ file=${*: -1:1}
 file=$(basename $file .pl)
 
 # Call the parser and create the .o file
-/usr/bin/python3 plush.py $@
+/usr/local/bin/python3 plush.py $@
 
 # Link the .o and create an executable
 cc -o $file $file.o

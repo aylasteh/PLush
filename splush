@@ -1,0 +1,14 @@
+
+
+# Get the filename last on commad line
+# splush [--tree] <filename>
+file=${*: -1:1}
+
+# remove the .pl
+file=$(basename $file .pl)
+
+# Call the parser and create the .o file
+/usr/bin/python3 plush.py $@
+
+# Link the .o and create an executable
+cc -o $file $file.o

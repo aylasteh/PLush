@@ -173,7 +173,7 @@ def p_array_type(p):
     array_type : LBRACK type_spec RBRACK
                | LBRACK array_type RBRACK
     """
-    p[0] = Node.ArrayExp(position=p.lineno(1), type=p[2], size=None, dimension = [], init=None)
+    p[0] = Node.ArrayExp(position=p.lineno(1), type=p[2], size=None, init=None)
 
 def p_el_with_comma(p):
     """
@@ -183,9 +183,9 @@ def p_el_with_comma(p):
                   | el_with_comma COMMA array_init
     """
     if len(p) == 2:
-        p[0] = Node.ExpressionList(position=p[1].position, expr_list=[p[1]])
+        p[0] = Node.DeclarationBlock(position=p[1].position, declaration_list=[p[1]], dimension=[])
     else:
-        p[0] = Node.ExpressionList(position=p.lineno(1), expr_list=p[1].expr_list + [p[3]])
+        p[0] = Node.DeclarationBlock(position=p.lineno(1), declaration_list=p[1].declaration_list + [p[3]], dimension=[])
 
 def p_array_init(p):
     "array_init : LBRACE el_with_comma RBRACE"
@@ -209,9 +209,9 @@ def p_val_decl(p):
              | VAL variable COLON complex_type_spec
     """
     if len(p) == 7:
-        p[0] = Node.ValVarDeclaration(isval = True, position=p.lineno(1),name=p[2].var,type=p[4],value=p[6])
+        p[0] = Node.ValVarDeclaration(isval = True, position=p.lineno(1),name=p[2].var,type=p[4],value=p[6], dimension=[])
     else:
-        p[0] = Node.ValVarDeclaration(isval = True, position=p.lineno(1),name=p[2].var,type=p[4],value=None)
+        p[0] = Node.ValVarDeclaration(isval = True, position=p.lineno(1),name=p[2].var,type=p[4],value=None, dimension=[])
     
 def p_var_decl(p):
     """
@@ -220,9 +220,9 @@ def p_var_decl(p):
              | VAR variable COLON complex_type_spec
     """
     if len(p) == 7:
-        p[0] = Node.ValVarDeclaration(isval = False, position=p.lineno(1),name=p[2].var,type=p[4],value=p[6])
+        p[0] = Node.ValVarDeclaration(isval = False, position=p.lineno(1),name=p[2].var,type=p[4],value=p[6], dimension=[])
     else:
-        p[0] = Node.ValVarDeclaration(isval = False, position=p.lineno(1),name=p[2].var,type=p[4],value=None)
+        p[0] = Node.ValVarDeclaration(isval = False, position=p.lineno(1),name=p[2].var,type=p[4],value=None, dimension=[])
 
 def p_var_exp(p):
     "var_exp : var_decl SEMICOLON"
@@ -309,7 +309,7 @@ def p_array_exp(p):
     array_exp : ID array_index
               | function_call array_index
     """
-    p[0] = Node.ArrayExp(position=p.lineno(1), type=p[1], size=p[2], dimension = [], init=None)
+    p[0] = Node.ArrayExp(position=p.lineno(1), type=p[1], size=p[2], init=None)
 
 #VARIABLE
 def p_variable(p):

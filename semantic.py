@@ -1,6 +1,8 @@
 
 import ast_nodes
 
+optimize =0
+
 types = ['int','real','char','string','boolean','void']
 
 class Any(object):
@@ -169,6 +171,7 @@ def check(node, target_basic_type=None):
             if isinstance(node, ast_nodes.ExpressionList):
                 # TODO complete
                 # print(node)
+                #node.pp()
                 # print(f"checking for {target_basic_type}")
                 last = None
                 returntype = None
@@ -190,6 +193,38 @@ def check(node, target_basic_type=None):
                       returntype = [returntype]
                 # print(returntype)
                 return returntype
+            
+            if isinstance(node, ast_nodes.DeclarationBlock):
+                last = None
+                returntype = None
+                vallist = []
+                same = False
+                subdim = None
+                for n in node.declaration_list:
+
+                    new_type=check(n, target_basic_type)
+                    if last == None:
+                          last = new_type
+                          same = True
+                    else:
+                          if last != new_type:
+                                same = False
+                    vallist = vallist + [new_type]
+                    returntype = last
+                    if isinstance(n, ast_nodes.DeclarationBlock):
+                         subdim = n.dimension
+                # print(vallist)
+                if subdim == None:
+                    node.dimension = [len(vallist)]
+                else:
+                     node.dimension = [len(vallist)] + subdim
+
+                # print(f"Dimension = {node.dimension}")
+                if same and len(vallist) > 1:
+                      # all expressions in list are the same and there are multiple expressions -> array
+                      returntype = [returntype]
+                # print(returntype)
+                return returntype
 
             elif isinstance(node, ast_nodes.ValVarDeclaration):
                 # print(node)
@@ -199,14 +234,19 @@ def check(node, target_basic_type=None):
                 basictype=var_type
                 while isinstance(basictype, list):
                     basictype = basictype[0]
-                # print(f"basictype {basictype}")
+                # print(f"basictype {basictype} : {node.complex_type}")
                 # print(f"ValVarDeclaration {var_name} : {var_type}")
                 set_var(var_name, var_type, node.isval)
-                if node.value != None:
-                      init_val_type = check(node.value, basictype)
-                      if init_val_type != var_type:
-                            raise Exception("var %s (%s) is not the same type as inital value: %s (%s) in line %s" % (var_name, var_type, init_val_type, node.value, node.position))
 
+                if node.value != None:
+                    init_val_type = check(node.value, basictype)
+                    if init_val_type != var_type:
+                            raise Exception("var %s (%s) is not the same type as inital value: %s (%s) in line %s" % (var_name, var_type, init_val_type, node.value, node.position))
+                    if isinstance(node.type, ast_nodes.ArrayExp):
+                        node.dimension = node.value.dimension
+                #print(node)
+
+                            
             elif isinstance(node, ast_nodes.ValVarList):
                  for i in node.args:
                       check(i)
@@ -229,11 +269,11 @@ def check(node, target_basic_type=None):
                     if len(fun_args) != 0:
                         raise Exception("Function %s needs argumetns (%s) in line %s" % (fun_name, node.args), node.position)
                 else:
-                    if len(fun_args) != len(node.args.expr_list):
+                    if len(fun_args) != len(node.args.declaration_list):
                         raise Exception("Function Number of arguments %s (%s) in line %s" % (len(fun_args), len(node.args.expr_list), node.position))
                     for i in range(len(fun_args)):
                         lt = fun_args[i][1]
-                        rt = check(node.args.expr_list[i], lt)
+                        rt = check(node.args.declaration_list[i], lt)
                         if lt != rt:
                               raise Exception("Function arguments (%s) do not match %s = %s in line %s" % (i, lt, rt, node.position))
                 return fun_type
@@ -271,6 +311,18 @@ def check(node, target_basic_type=None):
                 op = node.oper
                 vt1 = check(node.left, target_basic_type)
                 vt2 = check(node.right, target_basic_type)
+                leftval = None
+                rightval = None
+                if optimize:
+                    if isinstance(node.left, ast_nodes.IntExp):
+                         leftval = node.left.int
+                    if isinstance(node.right, ast_nodes.IntExp):
+                         righttval = node.right.int
+                    if isinstance(node.left, ast_nodes.OpExp):
+                        leftval = node.left.opt
+                    if isinstance(node.left, ast_nodes.OpExp):
+                        leftval = node.left.opt
+
                 if op == ast_nodes.Oper.notop:
                       if vt2 != 'boolean':
                         raise Exception("Arguments of operation '%s' must be boolean got %s in line %s" % (op, vt2, node.position))
@@ -278,6 +330,8 @@ def check(node, target_basic_type=None):
                       return vt2
                 if op in [ast_nodes.Oper.plus, ast_nodes.Oper.minus,
                           ast_nodes.Oper.times, ast_nodes.Oper.divide]:
+                    if optimize:
+                        node.opt = leftval + rightval
                     if vt1 != 'int' and not isreal(vt1):
                         raise Exception("Operation %s requires numbers in line %s" % (op, node.position))
                     if vt2 != 'int' and not isreal(vt2):

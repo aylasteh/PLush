@@ -18,10 +18,18 @@ class Type(ASTNode):
 
 class Expression(ASTNode):
     pass
+    def pp(self):
+        print("expression")
+
 
 @dataclass
 class ExpressionList(ASTNode):
-     expr_list: [Expression]
+    expr_list: [Expression]
+    def pp(self):
+        print("{")
+        for i in self.expr_list:
+            i.pp()
+        print("}")
 
 class Variable(ASTNode):
     pass
@@ -47,11 +55,12 @@ class Oper(Enum):
 
 # DECLARATION
 
-'''
+
 @dataclass
 class DeclarationBlock(ASTNode):
     declaration_list: List[Declaration]
-'''
+    dimension: List[int]
+
 
 @dataclass
 class Field(ASTNode):
@@ -138,7 +147,6 @@ class ArrayExp(Expression):
     type: str
     size: Expression
     init: Expression
-    dimension: List[int]
 
 
 @dataclass
@@ -150,6 +158,7 @@ class OpExp(Expression):
     oper: Oper
     left: Expression
     right: Expression
+    opt : int = None
     sem_type: str = None
 
 
@@ -163,7 +172,13 @@ class ValVarDeclaration(Declaration):
     name: str
     type: Type
     value: Expression
+    dimension: List[int]
     complex_type: str = ""
+
+    def pp(self):
+        print("ValVarDeclaration")
+
+
 
 '''  
 @dataclass
@@ -202,9 +217,12 @@ class FunctionDec(ASTNode):
     body: ExpressionList
     arg_types: List[str]
 
+    def pp(self):
+        print("FunctionDec")
+
 @dataclass
 class ArgsList(ASTNode):
-    args: List[Expression]
+    args: List[DeclarationBlock]
     
 @dataclass
 class FunctionCall(ASTNode):

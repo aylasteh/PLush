@@ -13,6 +13,8 @@ import plush_parser
 import semantic
 import codegen
 
+import jsonpickle
+
 
 # ERROR
 class SyntacticError(Exception):
@@ -41,6 +43,7 @@ parsed_output = None
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("file", help="PLush file to parse")
 arg_parser.add_argument("--tree", action="store_true", help="print syntax tree")
+arg_parser.add_argument("--optimize", action="store_true", help="optimization")
 
 args = arg_parser.parse_args()
 
@@ -50,9 +53,13 @@ try:
     parsed_output = plush_parser.plush_parse(input_string)
     if args.tree:
         print("Parsed output:")
+
+
+    if args.optimize:
+        semantic.optimize = 1
     semantic.check(parsed_output)
     if args.tree:
-        print(parsed_output)
+        print(jsonpickle.encode(parsed_output))
 
 except SyntacticError as e:
     print(f"Syntax error: {e}")
@@ -68,6 +75,8 @@ if parsed_output == None:
     print("error parsing")
     exit ()
 
+
+
 # For now disable the llvm example
 
 # All these initializations are required for code generation!
@@ -81,9 +90,7 @@ cg = codegen.codeg()
 
 llvm_ir = cg.codegen(parsed_output)
 
-#print(str(cg.module))
-#print(str(cg.module))
-
+print(str(cg.module))
 
 target_machine = target.create_target_machine(codemodel='small')
 

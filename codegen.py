@@ -28,6 +28,18 @@ def getsemtype(node):
         return(node.type)
     else:
         return None
+
+def get_pointertype_fromArrayExp(node):
+    if isinstance(node.type, ast_nodes.ArrayExp):
+        return ir.ArrayType(get_pointertype_fromArrayExp(node.type).as_pointer(), 1)
+    else:
+        if node.type == "float":
+            return ir.ArrayType(type_dbl, 1)
+        elif node.type == "string":
+            return ir.ArrayType(type_str, 1)
+        else: # boolean and int
+            return ir.ArrayType(type_i32, 1)
+                                  
 class codeg(object):
     def __init__(self):
         self.module = ir.Module()
@@ -59,16 +71,38 @@ class codeg(object):
         irbuilder.call(putchar, [ival])
         irbuilder.ret(ir.Constant(type_dbl, 0))
 
+    def _create_global(self, name, type):
+        """Create global variable."""
+        #print(f"alloca {type}")
+        if type == "float":
+            return ir.GlobalVariable(self.module, type_dbl, name=name)
+        elif type == "string":
+            return ir.GlobalVariable(self.module, type_str, name=name)
+        elif isinstance(type, ast_nodes.ArrayExp):
+            return ir.GlobalVariable(self.module, get_pointertype_fromArrayExp(type).as_pointer(), size=None, name=name)
+        else:  # boolean and int
+            return ir.GlobalVariable(self.module, type_i32, name=name)
+                                           
     def _create_entry_block_alloca(self, name, type):
         """Create an alloca in the entry BB of the current function."""
         builder = ir.IRBuilder()
         builder.position_at_start(self.builder.function.entry_basic_block)
+        #print(f"alloca {type}")
         if type == "float":
             return builder.alloca(type_dbl, size=None, name=name)
         elif type == "string":
             return builder.alloca(type_str, size=None, name=name)
-        else:
+        elif isinstance(type, ast_nodes.ArrayExp):
+            return builder.alloca(get_pointertype_fromArrayExp(type).as_pointer(), size=None, name=name)
+        else:  # boolean and int
             return builder.alloca(type_i32, size=None, name=name)
+
+    def get_var_addr(self, var_name):
+        # get address of variable from local or global
+        # first check local
+        if var_name in self.func_symtab:
+            return self.func_symtab[var_name]
+        return self.module.get_global(var_name)
 
     def codegen(self, node):
 
@@ -109,7 +143,6 @@ class codeg(object):
             self.builder.branch(loop_bb)
             self.builder.position_at_start(loop_bb)
 
-
             # Emit the body of the loop. This, like any other expr, can change the
             # current BB. Note that we ignore the value computed by the body.
             body_val = self.codegen(node.body)
@@ -130,7 +163,7 @@ class codeg(object):
             self.builder.position_at_start(after_bb)
 
             # The 'while' expression always returns 0
-            return ir.Constant(type_dbl, 0.0)
+            return ir.Constant(type_i32, 0)
     
         elif isinstance(node, ast_nodes.IfExp):
                     # Emit comparison value
@@ -180,36 +213,65 @@ class codeg(object):
             return phi
     
         elif isinstance(node, ast_nodes.VarExp):
-            var_addr = self.func_symtab[node.var]
+            var_addr = self.get_var_addr(node.var)
             return self.builder.load(var_addr, node.var)
+        elif isinstance(node, ast_nodes.ArrayExp):
+            obj_reference = self.get_var_addr(node.type)
+            for i in node.size.expr_list:
+                pos=i.int
+                xx=self.builder.load(obj_reference)
+                obj_reference =self.builder.gep(xx, [ir.Constant(type_i32, 0), ir.Constant(type_i32, pos)])     
+            obj_reference = self.builder.load(obj_reference)
+            return obj_reference
         elif isinstance(node, ast_nodes.AssignExp):
             if isinstance(node.var, ast_nodes.VarExp):
-                var_addr = self.func_symtab[node.var.var]
+                # left side is simple variable
+                var_addr = self.get_var_addr(node.var.var)
+            elif isinstance(node.var, ast_nodes.ArrayExp):
+                # left side is array with index a[]
+                # this code is sort of duplicated from above difference is the missing load()
+                ae = node.var
+                obj_reference = self.get_var_addr(ae.type)
+                for i in ae.size.expr_list:
+                    pos=i.int
+                    xx=self.builder.load(obj_reference)
+                    obj_reference =self.builder.gep(xx, [ir.Constant(type_i32, 0), ir.Constant(type_i32, pos)])     
+                var_addr = obj_reference
             else:
-                raise "Only simple variables are supportet"
+                raise f"Only variables on left side of expression are supported got {node.var}"
             exp = self.codegen(node.exp)
-            # print(node)
             self.builder.store(exp, var_addr)
             return exp
         elif isinstance(node, ast_nodes.ValVarDeclaration):
             old_bindings=[]
-            
+
+            # allocate space for the variables.
             if node.value != None:
+                # initializer 
                 init_val = self.codegen(node.value)
             else:
+                # default space
                 if node.type == "float":
                     init_val = ir.Constant(type_dbl, None)
                 elif node.type == "string":
-                    
-                    #location = ir.Constant(ir.ArrayType(ir.IntType(8), 8), bytearray("        ".encode("utf8")))
-                    init_val = ir.Constant(type_str, None)
+                    init_val = ir.Constant(type_str, None)  
+                elif isinstance(node.type, ast_nodes.ArrayExp):
+                    init_val= ir.Constant(get_pointertype_fromArrayExp(node.type).as_pointer(), None)
                 else:
+                    # integer of boolean
                     init_val = ir.Constant(type_i32, None)
             
-            saved_block = self.builder.block
-            var_addr = self._create_entry_block_alloca(node.name, node.type)
-            self.builder.position_at_end(saved_block)
-            self.builder.store(init_val, var_addr)
+            
+            if self.builder == None:
+                var_addr = self._create_global(node.name, node.type)
+                var_addr.initializer = init_val
+            else:
+                saved_block = self.builder.block
+                var_addr = self._create_entry_block_alloca(node.name, node.type)
+                self.builder.position_at_end(saved_block)
+                # print(self.module)
+                # print(f"store: {init_val} -> {var_addr}")
+                self.builder.store(init_val, var_addr)
 
             old_bindings.append(self.func_symtab.get(node.name))
             self.func_symtab[node.name] = var_addr
@@ -218,17 +280,32 @@ class codeg(object):
             callee_func = self.module.get_global(node.name)
             if callee_func is None or not isinstance(callee_func, ir.Function):
                 raise Exception('Call to unknown function', node.name)
-            # if len(callee_func.args) != len(node.args):
-            #    raise Exception('Call argument length mismatch', node.name)
-            call_args = [self.codegen(arg) for arg in node.args.expr_list]
+            if len(callee_func.args) != len(node.args.declaration_list):
+                raise Exception('Call argument length mismatch', node.name)
+            call_args = [self.codegen(arg) for arg in node.args.declaration_list]
             #call_args = []
             # print(f"callargs: {call_args}")
             return self.builder.call(callee_func, call_args, 'calltmp')
+        
         elif isinstance(node, ast_nodes.ExpressionList):
             for n in node.expr_list:
                 a = self.codegen(n)
-                # print (a)
             return a
+        
+        elif isinstance(node, ast_nodes.DeclarationBlock):
+            # Here we have to initialize the array....
+            dim = node.dimension[0]
+            for i, n in enumerate(node.declaration_list):    
+                a = self.codegen(n)
+                if i == 0:
+                    arr_type = ir.ArrayType(a.type, 1)
+                    p = self.builder.alloca(arr_type, dim )
+                    # print(p)
+                pp = self.builder.gep(p, [ir.Constant(type_i32,0), ir.Constant(type_i32,i)])
+                self.builder.store(a, pp)
+                #print(pp)
+            return p
+        
         elif isinstance(node, ast_nodes.FunctionDec):
             self.func_symtab = {}
             funcname = node.name
@@ -276,6 +353,8 @@ class codeg(object):
                 if node.return_type == "float":            
                     arg = ir.Constant(type_dbl, 0.0)
                     func_var = self.builder.alloca(type_dbl, name=node.name)
+                elif node.return_type == "string":
+                    arg = self.builder.alloca(type_str, name=node.name)
                 else:
                     arg = ir.Constant(type_i32, 0)
                     func_var = self.builder.alloca(type_i32, name=node.name)
@@ -290,6 +369,7 @@ class codeg(object):
             else:
                 self.builder.ret_void()
             return func
+            
         elif isinstance(node, ast_nodes.OpExp):
             # print(f"opnode.semtype {node.sem_type}")
 

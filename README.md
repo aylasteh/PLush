@@ -5,7 +5,8 @@ structure:
 how to run:
 run setup.sh on the latest Ubuntu LTS release to install al dependencies
 
-splush <filename>.pl  - 
+splush <filename>.pl  - execute code in file
+splush --tree <filename>pl - prints abstract syntax tree
 
 # PLush
 PLush compiler

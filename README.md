@@ -1,3 +1,12 @@
+author: Ayla Stehling fc63327
+
+structure:
+
+how to run:
+run setup.sh on the latest Ubuntu LTS release to install al dependencies
+
+splush <filename>.pl  - 
+
 # PLush
 PLush compiler
 

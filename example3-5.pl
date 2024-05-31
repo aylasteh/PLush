@@ -18,7 +18,7 @@ function getNthFib(var n:int) : int {
                 prev := currentNumber;
                 counter := counter + 1;
             }
-            res := currentNumber[0];
+            res := currentNumber[0]; # int can't be acccesed through an index
         }
     }
     
@@ -28,5 +28,5 @@ function getNthFib(var n:int) : int {
 
 function main(val args: string): int{
     val result : int := getNthFib(fib);
-    main := result;
+    print_int(result);
 }

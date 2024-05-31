@@ -18,6 +18,6 @@ function gct(var a1:int, var b1:int) : string {
 
 function main(val args: string) :int {
     val result : int := gct(a,b); # gct returns a string, but is saved here as an int
-    main := result;
+    print_int(result);
 }
 

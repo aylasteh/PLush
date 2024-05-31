@@ -11,5 +11,5 @@ function modulo(var numb:int, val mod:int) : int{
 
 function main(val args: string):int{
     val result : int := modulo(num,modu);
-    main := result;
+    print_int(result);
 }

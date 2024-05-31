@@ -26,7 +26,7 @@ function getNthFib(var n:int) : int {
 
 }
 
-function main(val args: string): int{
+function main(val args: string):int{
     val result : int := getNthFib(fib);
-    main := result;
+    print_int(result);
 }

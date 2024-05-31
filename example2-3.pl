@@ -18,5 +18,5 @@ function gct(var a1:int, var b1:int) : int {
 
 function main(val args: string) :int {
     val result : int := gct(a,b);
-    main := result;
+    print_int(result);
 }

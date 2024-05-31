@@ -18,5 +18,5 @@ function gct(var a1:int, var 1:int) : int { # numbers only not allowed as variab
 
 function main(val args: string) :int {
     val result : int := gct(a,b);
-    main := result;
+    print_int(result);
 }

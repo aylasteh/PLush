@@ -325,10 +325,17 @@ class codeg(object):
             callee_func = self.module.get_global(node.name)
             if callee_func is None or not isinstance(callee_func, ir.Function):
                 raise Exception('Call to unknown function', node.name)
-            if len(callee_func.args) != len(node.args.declaration_list):
-                raise Exception('Call argument length mismatch', node.name)
-            call_args = [self.codegen(arg) for arg in node.args.declaration_list]
-            #call_args = []
+            if not isinstance(node.args, ast_nodes.EmptyExp):
+                if len(callee_func.args) != len(node.args.declaration_list):
+                    raise Exception('Call argument length mismatch', node.name)
+            else:
+                if len(callee_func.args) != 0:
+                    raise Exception('Call argument length mismatch', node.name)
+            
+            if not isinstance(node.args, ast_nodes.EmptyExp):
+                call_args = [self.codegen(arg) for arg in node.args.declaration_list]
+            else:
+                call_args = []
             # print(f"callargs: {call_args}")
             return self.builder.call(callee_func, call_args, 'calltmp')
         
@@ -439,7 +446,10 @@ class codeg(object):
                         leftsemtype = "float"
                 # print(f"left semtype: {leftsemtype}")
             else:
-                return self.builder.icmp_unsigned('!=', ir.Constant(type_i32, 1), right, 'nottmp')
+                if right.type != type_bool:
+                    return self.builder.icmp_unsigned('!=', ir.Constant(type_i32, 1), right, 'nottmp')
+                else:
+                    return self.builder.icmp_unsigned('!=', ir.Constant(type_bool, 1), right, 'nottmp')
             
             if node.oper == ast_nodes.Oper.andop:
                 if leftsemtype == "float":

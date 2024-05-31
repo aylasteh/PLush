@@ -1,7 +1,7 @@
-val fib : int := 7.3; # is a float but declared as an int
+val fib : int := 7;
 
 function getNthFib(var n:int) : int {
-    var res: int := 0;
+    val res: int := 0; # should be a var, asit is changed later on
     if n == 1 {
         res := 0;
     } else {

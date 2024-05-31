@@ -1,5 +1,5 @@
 
-function main (val argc: int, val argv : string):float {
+function main (val argc: int, val argv : [string]):int {
 
     val s : string := "abc";
     val s1 : string := "efghi";
@@ -13,6 +13,6 @@ function main (val argc: int, val argv : string):float {
     putchar(48);
     putchar(10);
 
-    main := 9;
+    main := 0;
 
 }

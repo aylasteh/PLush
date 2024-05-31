@@ -15,7 +15,7 @@ function getNthFib(var n:int) : int {
             while counter < n {
                 currentNumber := presPrev + prev;
                 presPrev := prev;
-                prev := currentNumber;
+                prev := currentNumber # ; is needed at end of sequence
                 counter := counter + 1;
             }
             res := currentNumber;

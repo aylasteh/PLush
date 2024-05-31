@@ -1,7 +1,8 @@
-## tests
+# Tests
 
 Each successfull tests has the expected output in folder expected defined.
-Successfull tests:
+
+## Successfull tests:
 
 test_array.pl: <br/>
 tests different array functions: define, access, ect.
@@ -30,7 +31,7 @@ medium test program: greatest common divisor
 example3.pl: <br/>
 large test program: fibonacci numbers
 
-Tests meant to fail: <br/>
+## Tests meant to fail: <br/>
 
 example1-1.pl to example1-5.pl <br/>
 example2-1.pl to example2-5.pl <br/>

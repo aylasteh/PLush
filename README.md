@@ -17,18 +17,20 @@ tests/examples are in the tests folder, see README.md in folder for more informa
 ## how to run:
 run setup.sh on the latest Ubuntu LTS release to install all dependencies <br/>
 
-tested with ubuntu:20.04 image started using docker run -it --name ubuntu20 ubuntu:20.04 bash <br/>
+tested with ubuntu:20.04 image started using `docker run -it --name ubuntu20 ubuntu:20.04 bash` <br/>
 remember to map local directary using -v option <br/>
 
-./splush "filename".pl  -> create .o and executable  <br/>
-./splush --tree "filename".pl -> prints abstract syntax tree <br/>
-    (When trying out this function I would recommend not using it on the longest programm as the AST can get quite long. A recommended test programm is example1.pl) <br/>
-./splush --optimize "filename".pl -> wenn used to execute file, the tree optimizers will be applied <br/>
+| Command                               | Description |
+|---------------------------------------|-------------|
+|./splush&nbsp;_\<filename\>_.pl             | create .o and executable |
+|<span style="white-space:nowrap;">./splush&nbsp;--tree&nbsp;_\<filename\>_.pl</span>     | prints abstract syntax tree (When trying out this function I would recommend not using it on the longest programm as the AST can get quite long. A recommended test programm is example1.pl)
+|<span style="white-space:nowrap;">./splush&nbsp;--optimize&nbsp;_\<filename.pl\>_</span>  | when used to execute file, the tree optimizers will be applied |
+|./_\<filename\>_                       | run file |
 
-./"filename" -> run file
 
 note:  <br/>
-if llvm missing, check the path to python (line 10 in splush)
+If python3 cannot find llvm, check the path to python (line 10 in splush).
+The available python3 executables can be found e.g. using `where python3`
 
 # PLush
 PLush compiler

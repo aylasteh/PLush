@@ -16,6 +16,7 @@ tests/examples are in the tests folder, see README.md in folder for more informa
 
 ## how to run:
 run setup.sh on the latest Ubuntu LTS release to install all dependencies <br/>
+
 tested with ubuntu:20.04 image started using docker run -it --name ubuntu20 ubuntu:20.04 bash <br/>
 
 ./splush "filename".pl  -> create .o and executable  <br/>

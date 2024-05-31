@@ -22,7 +22,7 @@ run setup.sh on the latest Ubuntu LTS release to install all dependencies <br/>
     (When trying out this function I would recommend not using it on the longest programm as the AST can get quite long. A recommended test programm is example1.pl) <br/>
 ./splush --optimize "filename".pl -> wenn used to execute file, the tree optimizers will be applied <br/>
 
-./\textless{}filename" -> run file
+./"filename" -> run file
 
 note:  <br/>
 if llvm missing, check the path to python (line 10 in splush)

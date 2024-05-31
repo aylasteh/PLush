@@ -31,10 +31,13 @@ medium test program: greatest common divisor
 example3.pl: <br/>
 large test program: fibonacci numbers
 
+test_recursion:  <br/>
+fibonacci numbers with recursion
+
 ## Tests meant to fail: <br/>
 
 example1-1.pl to example1-5.pl <br/>
 example2-1.pl to example2-5.pl <br/>
 example3-1.pl to example3-5.pl <br/>
-tests different lexical, semantic and syntatic mistakes <br/>
-each mistake is commented in the code
+Tests different lexical, semantic and syntatic mistakes. <br/>
+Each mistake is commented in the code.

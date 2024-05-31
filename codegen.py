@@ -77,6 +77,25 @@ class codeg(object):
         putchar_ty = ir.FunctionType(type_i32, [type_i32])
         putchar = ir.Function(module, putchar_ty, 'putchar')
 
+        # Add the print_int
+
+        intfmt = "%d\n"
+        c_fmt = ir.Constant(ir.ArrayType(ir.IntType(8), len(intfmt) +1),
+                        bytearray(intfmt.encode("utf8")) + b'\x00')
+        global_fmt = ir.GlobalVariable(module, c_fmt.type, name="fstr")
+        global_fmt.linkage = 'internal'
+        global_fmt.global_constant = True
+        global_fmt.initializer = c_fmt
+
+        printf_ty = ir.FunctionType(ir.IntType(32), [type_pi8], var_arg=True)
+        printf = ir.Function(module, printf_ty, name="printf")
+        print_int_ty = ir.FunctionType(type_dbl, [type_i32])
+        print_int = ir.Function(module, print_int_ty, 'print_int')
+        irbuilder = ir.IRBuilder(print_int.append_basic_block('entry'))
+        fmt_arg = irbuilder.bitcast(global_fmt, type_pi8)
+        irbuilder.call(printf, [fmt_arg,print_int.args[0]] )
+        irbuilder.ret(ir.Constant(type_dbl, 0))
+
         # Add putchard
         putchard_ty = ir.FunctionType(type_dbl, [type_dbl])
         putchard = ir.Function(module, putchard_ty, 'putchard')

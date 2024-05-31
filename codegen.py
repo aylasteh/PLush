@@ -7,7 +7,7 @@ import llvmlite.binding as llvm
 
 import ast_nodes
 
-
+type_bool  = ir.IntType(1)
 type_i8  = ir.IntType(8)
 type_i32 =  ir.IntType(32)
 type_dbl = ir.DoubleType()
@@ -37,7 +37,9 @@ def get_pointertype_fromArrayExp(node):
             return ir.ArrayType(type_dbl, 1)
         elif node.type == "string":
             return ir.ArrayType(type_str, 1)
-        else: # boolean and int
+        elif node.type == "boolean":
+            return ir.ArrayType(type_bool, 1)
+        else:
             return ir.ArrayType(type_i32, 1)
 
 def get_llvmtype_fromArglist(intype):
@@ -51,6 +53,8 @@ def get_llvmtype_fromArglist(intype):
            return (type_dbl)
         elif intype == "string":
             return (type_str)
+        elif intype == "boolean":
+            return (type_bool)
         else:
             return (type_i32)
                                   
@@ -111,6 +115,8 @@ class codeg(object):
             return ir.GlobalVariable(self.module, type_dbl, name=name)
         elif type == "string":
             return ir.GlobalVariable(self.module, type_str, name=name)
+        elif type == "boolean":
+            return ir.GlobalVariable(self.module, type_bool, name=name)
         elif isinstance(type, ast_nodes.ArrayExp):
             return ir.GlobalVariable(self.module, get_pointertype_fromArrayExp(type).as_pointer(), size=None, name=name)
         else:  # boolean and int
@@ -125,6 +131,8 @@ class codeg(object):
             return builder.alloca(type_dbl, size=None, name=name)
         elif type == "string":
             return builder.alloca(type_str, size=None, name=name)
+        elif type == "boolean":
+            return builder.alloca(type_bool, size=None, name=name)
         elif isinstance(type, ast_nodes.ArrayExp):
             return builder.alloca(get_pointertype_fromArrayExp(type).as_pointer(), size=None, name=name)
         else:  # boolean and int
@@ -150,7 +158,7 @@ class codeg(object):
             return ir.Constant(type_dbl, float(node.value))
         
         elif isinstance(node, ast_nodes.BoolExp):
-            return ir.Constant(type_i32, 1 if node.value == True else 0)
+            return ir.Constant(type_bool, 1 if node.value == True else 0)
         
         elif isinstance(node, ast_nodes.StringExp):
             # strings are a pointer to int(8)
@@ -183,7 +191,7 @@ class codeg(object):
             # Compute the end condition
             endcond = self.codegen(node.test)
             cmp = self.builder.icmp_signed(
-                '!=', endcond, ir.Constant(type_i32, 0),
+                '!=', endcond, ir.Constant(type_bool, 0),
                 'loopcond')
 
             # Create the 'after loop' block and insert it
@@ -202,7 +210,7 @@ class codeg(object):
                     # Emit comparison value
             cond_val = self.codegen(node.test)
             cmp = self.builder.icmp_signed(
-                '!=', cond_val, ir.Constant(type_i32, 0))
+                '!=', cond_val, ir.Constant(type_bool, 0))
 
             # Create basic blocks to express the control flow, with a conditional
             # branch to either then_bb or else_bb depending on cmp. else_bb and
@@ -288,6 +296,8 @@ class codeg(object):
                     init_val = ir.Constant(type_dbl, None)
                 elif node.type == "string":
                     init_val = ir.Constant(type_str, None)  
+                elif node.type == "boolean":
+                    init_val = ir.Constant(type_bool, None) 
                 elif isinstance(node.type, ast_nodes.ArrayExp):
                     init_val= ir.Constant(get_pointertype_fromArrayExp(node.type).as_pointer(), None)
                 else:
@@ -358,6 +368,8 @@ class codeg(object):
             elif node.return_type == "string":
                 # func_ty = ir.FunctionType(ir.ArrayType(ir.IntType(8),8), arglist)
                 func_ty = ir.FunctionType(type_str, arglist)
+            elif node.return_type == "boolean":
+                func_ty = ir.FunctionType(type_bool, arglist)
             else:
                 func_ty = ir.FunctionType(type_i32,
                                     arglist)
@@ -412,15 +424,57 @@ class codeg(object):
                 # optimizer
                 return(ir.Constant(type_i32, node.opt))
 
-            rightsemtype = getsemtype(node.left)
             # print(f"right semtype: {rightsemtype}")
             right = self.codegen(node.right)
+            rightsemtype = getsemtype(node.left)
+            if rightsemtype == None:
+                if right.type == type_dbl:
+                    rightsemtype = "float"
+            
             if node.oper != ast_nodes.Oper.notop:
                 left = self.codegen(node.left)
                 leftsemtype = getsemtype(node.left)
+                if leftsemtype == None:
+                    if left.type == type_dbl:
+                        leftsemtype = "float"
                 # print(f"left semtype: {leftsemtype}")
             else:
                 return self.builder.icmp_unsigned('!=', ir.Constant(type_i32, 1), right, 'nottmp')
+            
+            if node.oper == ast_nodes.Oper.andop:
+                if leftsemtype == "float":
+                    lr = self.builder.fcmp_unordered('!=', ir.Constant(type_dbl, 0.0), left, 'fandtmplr')
+                    rr = self.builder.fcmp_unordered('!=', ir.Constant(type_dbl, 0.0), right, 'fandtmprr')
+                else:
+                    print(left.type)
+                    if left.type != type_bool:
+                        lr = self.builder.icmp_unsigned('!=', ir.Constant(type_i32, 0), left, 'andtmplr')
+                    else:
+                        lr = left
+                    if right.type != type_bool:
+                        rr = self.builder.icmp_unsigned('!=', ir.Constant(type_i32, 0), left, 'ortmplr')
+                    else:
+                        rr = right
+                cmp = self.builder.and_(lr, rr, 'andaddtmp')
+                #cmp = self.builder.icmp_unsigned('==', cmpr, ir.Constant(type_i32, 2), 'andcmptmp')
+                return cmp
+            if node.oper == ast_nodes.Oper.orop:
+                if leftsemtype == "float":
+                    lr = self.builder.fcmp_unordered('!=', ir.Constant(type_dbl, 0.0), left, 'andtmplr')
+                    rr = self.builder.fcmp_unordered('!=', ir.Constant(type_dbl, 0.0), right, 'andtmprr')
+                else:
+                    if left.type != type_bool:
+                        lr = self.builder.icmp_unsigned('!=', ir.Constant(type_i32, 0), left, 'ortmplr')
+                    else:
+                        lr = left
+                    if right.type != type_bool:
+                        rr = self.builder.icmp_unsigned('!=', ir.Constant(type_i32, 0), left, 'ortmplr')
+                    else:
+                        rr = right
+                cmp = self.builder.or_(lr, rr, 'oraddtmp')
+                # cmp = self.builder.icmp_unsigned('>', cmpr, ir.Constant(type_i32, 0), 'orcmptmp')
+                return cmp
+                
             
             if node.sem_type == "float":
                 if node.oper == ast_nodes.Oper.plus:
@@ -431,6 +485,10 @@ class codeg(object):
                     return self.builder.fmul(left, right, 'multmp')
                 elif node.oper == ast_nodes.Oper.divide:
                     return self.builder.fdiv(left, right, 'divtmp')
+                elif node.oper == ast_nodes.Oper.exponent:
+                    powi = self.module.declare_intrinsic('llvm.pow', [type_dbl])
+                    return self.builder.call(powi, [left, right], 'fcall')
+                
             if node.sem_type == "boolean":
                 if leftsemtype == "float":
                     if node.oper == ast_nodes.Oper.lt:
@@ -451,6 +509,8 @@ class codeg(object):
                     elif node.oper == ast_nodes.Oper.le:
                         cmp = self.builder.fcmp_unordered('<=', left, right, 'cmptmp')
                         return cmp
+
+
                 else:
                     if node.oper == ast_nodes.Oper.lt:
                         cmp = self.builder.icmp_unsigned('<', left, right, 'cmptmp')
@@ -482,6 +542,12 @@ class codeg(object):
                     return self.builder.sdiv(left, right, 'divtmp')
                 elif node.oper == ast_nodes.Oper.mod:
                     return self.builder.srem(left, right, 'modtmp')
+                elif node.oper == ast_nodes.Oper.exponent:
+                    powi = self.module.declare_intrinsic('llvm.powi', [type_dbl])
+                    leftdbl = self.builder.sitofp(left, type_dbl, 'leftasdbl')
+                    resdbl = self.builder.call(powi, [leftdbl, right], 'fcall')
+                    return self.builder.fptosi(resdbl, type_i32)
+
             return(left)
         else:
             print("codegen not found: %s" % (type(node)))

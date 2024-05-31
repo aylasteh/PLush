@@ -351,10 +351,10 @@ def check(node, target_basic_type=None):
 
 
                 if op == ast_nodes.Oper.notop:
-                      if vt2 != 'boolean':
+                      if vt2 not in ['boolean', 'int']:
                         raise Exception("Arguments of operation '%s' must be boolean got %s in line %s" % (op, vt2, node.position))
-                      node.sem_type = vt2
-                      return vt2
+                      node.sem_type = 'boolean'
+                      return 'boolean'
                 
                 if optimize:
                     if isinstance(node.left, ast_nodes.IntExp):
@@ -403,8 +403,9 @@ def check(node, target_basic_type=None):
                         if rightval != None and leftval != None:
                             node.opt = leftval % rightval
                 if op in [ast_nodes.Oper.lt, ast_nodes.Oper.gt,
-                          ast_nodes.Oper.ge, ast_nodes.Oper.le,
-                            ast_nodes.Oper.eq, ast_nodes.Oper.neq ]:
+                            ast_nodes.Oper.ge, ast_nodes.Oper.le,
+                            ast_nodes.Oper.eq, ast_nodes.Oper.neq,
+                            ast_nodes.Oper.andop, ast_nodes.Oper.orop ]:
                     
                     node.sem_type = 'boolean'
                     return 'boolean'

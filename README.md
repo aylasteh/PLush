@@ -1,14 +1,28 @@
-author: Ayla Stehling fc63327
+author: Ayla Stehling (fc63327)
 
-structure:
+## structure:
+ast_nodes.py -> nodes of ast of language <br/>
+codegen.py -> ir code generation using llvmlite <br/>
+lex.py -> tokens of language <br/>
+plush_parser.py -> parser of language <br/>
+plush.py -> compile llvm <br/>
+semantic.py -> semantics of language <br/>
+folder src/ply -> contains tools yacc.py and lex.py <br/>
+folder tests -> contains all tests <br/>
+setup.sh -> install all dependencies on the latest Ubuntu LTS <br/>
+splush -> script to run code
 
-how to run:
-run setup.sh on the latest Ubuntu LTS release to install al dependencies
+tests/examples are in the tests folder, see README.md in folder for more information
 
-splush "filename".pl  -> execute code in file <br/>
-splush --tree "filename".pl -> prints abstract syntax tree <br/>
+## how to run:
+run setup.sh on the latest Ubuntu LTS release to install all dependencies
+
+./splush "filename".pl  -> create .o and executable  <br/>
+./splush --tree "filename".pl -> prints abstract syntax tree <br/>
     (When trying out this function I would recommend not using it on the longest programm as the AST can get quite long. A recommended test programm is example1.pl) <br/>
-splush --optimize "filename".pl -> wenn used to execute file, the tree optimizers will be applied <br/>
+./splush --optimize "filename".pl -> wenn used to execute file, the tree optimizers will be applied <br/>
+
+./"filename" -> run file
 
 # PLush
 PLush compiler

@@ -5,8 +5,10 @@ structure:
 how to run:
 run setup.sh on the latest Ubuntu LTS release to install al dependencies
 
-splush <filename>.pl  - execute code in file
-splush --tree <filename>pl - prints abstract syntax tree
+splush "filename".pl  -> execute code in file
+splush --tree "filename".pl -> prints abstract syntax tree
+    (When trying out this function I would recommend not using it on the longest programm as the AST can get quite long. A recommended test programm is example1.pl)
+splush --optimize "filename".pl -> wenn used to execute file, the tree optimizers will be applied
 
 # PLush
 PLush compiler

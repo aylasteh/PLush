@@ -15,14 +15,17 @@ splush -> script to run code
 tests/examples are in the tests folder, see README.md in folder for more information
 
 ## how to run:
-run setup.sh on the latest Ubuntu LTS release to install all dependencies
+run setup.sh on the latest Ubuntu LTS release to install all dependencies <br/>
 
 ./splush "filename".pl  -> create .o and executable  <br/>
 ./splush --tree "filename".pl -> prints abstract syntax tree <br/>
     (When trying out this function I would recommend not using it on the longest programm as the AST can get quite long. A recommended test programm is example1.pl) <br/>
 ./splush --optimize "filename".pl -> wenn used to execute file, the tree optimizers will be applied <br/>
 
-./"filename" -> run file
+./\textless{}filename" -> run file
+
+note:  <br/>
+if llvm missing, check the path to python (line 10 in splush)
 
 # PLush
 PLush compiler

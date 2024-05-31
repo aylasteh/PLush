@@ -242,8 +242,8 @@ def check(node, target_basic_type=None):
                     init_val_type = check(node.value, basictype)
                     if init_val_type != var_type:
                             raise Exception("var %s (%s) is not the same type as inital value: %s (%s) in line %s" % (var_name, var_type, init_val_type, node.value, node.position))
-                    if isinstance(node.type, ast_nodes.ArrayExp):
-                        node.dimension = node.value.dimension
+                    #if isinstance(node.type, ast_nodes.ArrayExp):
+                    #    node.dimension = node.value.dimension
                 #print(node)
 
                             
@@ -279,33 +279,64 @@ def check(node, target_basic_type=None):
                 return fun_type
 
             elif isinstance(node, ast_nodes.FunctionDec):
+
+                # get data for the function declaration
                 fun_name = node.name
                 fun_type = sem_arglist(node.return_type)
-                
-                check_if_function(fun_name)
                 args = []
                 for i in node.params.args:
-					# TODO: args are also variables
                     #print("var %s, %s, %s", (i, i.name, i.type))
                     #print(sem_arglist(i))
                     if isinstance(i, ast_nodes.EmptyExp):
                           continue
                     args = args + [[i.name, sem_arglist(i), i.isval]]
                 #functions[fun_name.lower()] = (fun_type,args)
-                set_funvar(fun_name, fun_type, args)
+                # fun: subtractUntilNegative2D: ['int']
+                # print(args)
+                node.arg_types = args
+
+                # check if function is already declared
+
+                if node.body == None:
+                     # function declaration
+                    check_if_function(fun_name)
+                    set_funvar(fun_name, fun_type, args)
+                    return fun_type
+                else:
+                    if fun_name.lower() in functions:
+                        funinfo=functions[fun_name.lower()]
+                        # print(f"function call: {funinfo}")
+                        decl_fun_type = funinfo[0]
+                        decl_fun_args = funinfo[1]
+                        # print(f"function {fun_name}: {fun_type} <{fun_args}>")
+                        # Check arguments
+                        # print(len(fun_args))
+                        if fun_type != decl_fun_type:
+                            raise Exception("Function Declaration does not match return type %s (%s) in line %s" % (fun_type, decl_fun_type, node.position))                         
+                        if len(decl_fun_args) != len(args):
+                            raise Exception("Function Declaration does not match number of arguments %s (%s) in line %s" % (len(decl_fun_args), len(args), node.position))
+                        for i in range(len(decl_fun_args)):
+                            lt = decl_fun_args[i][1]
+                            rt = args[i][1]
+                            if lt != rt:
+                                raise Exception("Function Declaration arguments (%s) do not match %s = %s in line %s" % (i, lt, rt, node.position))
+                    else:
+                        check_if_function(fun_name)
+                        set_funvar(fun_name, fun_type, args)
+
                 contexts.append(Context(fun_name, fun_type))
                 # print(f"fun: {fun_name}: {fun_type}")
 
                  # Need to check the type of the parameters and possible init values...
                 check(node.params)
 
-				# fun: subtractUntilNegative2D: ['int']
-                # print(args)
-                node.arg_types = args
+
 				# [['array2D', [['int']]], ['numRows', 'int'], ['numCols', 'int']]
                 
                 check(node.body)
                 pop()
+
+                return fun_type
 
             elif isinstance(node, ast_nodes.OpExp):
                 op = node.oper
@@ -313,29 +344,42 @@ def check(node, target_basic_type=None):
                 vt2 = check(node.right, target_basic_type)
                 leftval = None
                 rightval = None
-                if optimize:
-                    if isinstance(node.left, ast_nodes.IntExp):
-                         leftval = node.left.int
-                    if isinstance(node.right, ast_nodes.IntExp):
-                         righttval = node.right.int
-                    if isinstance(node.left, ast_nodes.OpExp):
-                        leftval = node.left.opt
-                    if isinstance(node.left, ast_nodes.OpExp):
-                        leftval = node.left.opt
+
 
                 if op == ast_nodes.Oper.notop:
                       if vt2 != 'boolean':
                         raise Exception("Arguments of operation '%s' must be boolean got %s in line %s" % (op, vt2, node.position))
                       node.sem_type = vt2
                       return vt2
+                
+                if optimize:
+                    if isinstance(node.left, ast_nodes.IntExp):
+                         leftval = node.left.int
+                    if isinstance(node.right, ast_nodes.IntExp):
+                         rightval = node.right.int
+                    if isinstance(node.left, ast_nodes.OpExp):
+                        leftval = node.left.opt
+                    if isinstance(node.right, ast_nodes.OpExp):
+                        rightval = node.right.opt
+
+                
                 if op in [ast_nodes.Oper.plus, ast_nodes.Oper.minus,
                           ast_nodes.Oper.times, ast_nodes.Oper.divide]:
-                    if optimize:
-                        node.opt = leftval + rightval
+
                     if vt1 != 'int' and not isreal(vt1):
                         raise Exception("Operation %s requires numbers in line %s" % (op, node.position))
                     if vt2 != 'int' and not isreal(vt2):
                         raise Exception("Operation %s requires numbers in line %s" % (op, node.position))
+                    if optimize:
+                        if rightval != None and leftval != None:
+                            if op == ast_nodes.Oper.plus:
+                                node.opt = leftval + rightval
+                            elif op == ast_nodes.Oper.minus:
+                                node.opt = leftval - rightval
+                            elif op == ast_nodes.Oper.times:
+                                node.opt = leftval * rightval
+                            elif op == ast_nodes.Oper.divide:
+                                node.opt = int(leftval / rightval)
                     if vt1 == 'int':
                           node.sem_type = vt2
                           return vt2
@@ -350,7 +394,10 @@ def check(node, target_basic_type=None):
                     raise Exception("Arguments of operation '%s' must be of the same type. Got %s and %s in line %s" % (op,vt1,vt2, node.position))
                 if op == ast_nodes.Oper.mod:
                     if vt2 != 'int' or vt1 != 'int':
-                        raise Exception("Operation %s int  in line %s" % (op, node.position))
+                        raise Exception("Operation %s needs int in line %s" % (op, node.position))
+                    if optimize:
+                        if rightval != None and leftval != None:
+                            node.opt = leftval % rightval
                 if op in [ast_nodes.Oper.lt, ast_nodes.Oper.gt,
                           ast_nodes.Oper.ge, ast_nodes.Oper.le,
                             ast_nodes.Oper.eq, ast_nodes.Oper.neq ]:
@@ -382,6 +429,8 @@ def check(node, target_basic_type=None):
                         ret_type = check(node.type)
                     else:
                         ret_type = get_var(node.type)
+                    if not isinstance(ret_type, list):
+                         raise Exception("%s is no array type (%s) line %s" % (node.type, ret_type, node.position))
                     if node.size != None:
                         # Index is an expression list a[1][2]
                         for exp in node.size.expr_list:

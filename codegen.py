@@ -39,12 +39,26 @@ def get_pointertype_fromArrayExp(node):
             return ir.ArrayType(type_str, 1)
         else: # boolean and int
             return ir.ArrayType(type_i32, 1)
+
+def get_llvmtype_fromArglist(intype):
+    if isinstance(intype, list):
+        if isinstance(intype[0], list):
+            return ir.ArrayType(get_llvmtype_fromArglist(intype[0]).as_pointer(), 1)
+        else:
+            return ir.ArrayType(get_llvmtype_fromArglist(intype[0]), 1).as_pointer()
+    else:
+        if intype == "float":
+           return (type_dbl)
+        elif intype == "string":
+            return (type_str)
+        else:
+            return (type_i32)
                                   
 class codeg(object):
     def __init__(self):
         self.module = ir.Module()
         self.builder = None
-        self.func_symtab = {}
+        self.func_symtab = None
         self.count = 0
         self.add_builtins(self.module)
 
@@ -218,9 +232,9 @@ class codeg(object):
         elif isinstance(node, ast_nodes.ArrayExp):
             obj_reference = self.get_var_addr(node.type)
             for i in node.size.expr_list:
-                pos=i.int
+                pos = self.codegen(node.size.expr_list[0])
                 xx=self.builder.load(obj_reference)
-                obj_reference =self.builder.gep(xx, [ir.Constant(type_i32, 0), ir.Constant(type_i32, pos)])     
+                obj_reference =self.builder.gep(xx, [ir.Constant(type_i32, 0), pos])     
             obj_reference = self.builder.load(obj_reference)
             return obj_reference
         elif isinstance(node, ast_nodes.AssignExp):
@@ -233,9 +247,9 @@ class codeg(object):
                 ae = node.var
                 obj_reference = self.get_var_addr(ae.type)
                 for i in ae.size.expr_list:
-                    pos=i.int
+                    pos = self.codegen(i)
                     xx=self.builder.load(obj_reference)
-                    obj_reference =self.builder.gep(xx, [ir.Constant(type_i32, 0), ir.Constant(type_i32, pos)])     
+                    obj_reference =self.builder.gep(xx, [ir.Constant(type_i32, 0), pos])     
                 var_addr = obj_reference
             else:
                 raise f"Only variables on left side of expression are supported got {node.var}"
@@ -262,19 +276,21 @@ class codeg(object):
                     init_val = ir.Constant(type_i32, None)
             
             
-            if self.builder == None:
+            if self.func_symtab == None:
+                # in global context
                 var_addr = self._create_global(node.name, node.type)
                 var_addr.initializer = init_val
             else:
+                # local vars
+                # create and store reference in symbol table
                 saved_block = self.builder.block
                 var_addr = self._create_entry_block_alloca(node.name, node.type)
                 self.builder.position_at_end(saved_block)
                 # print(self.module)
                 # print(f"store: {init_val} -> {var_addr}")
                 self.builder.store(init_val, var_addr)
-
-            old_bindings.append(self.func_symtab.get(node.name))
-            self.func_symtab[node.name] = var_addr
+                old_bindings.append(self.func_symtab.get(node.name))
+                self.func_symtab[node.name] = var_addr
     
         elif isinstance(node, ast_nodes.FunctionCall):
             callee_func = self.module.get_global(node.name)
@@ -306,19 +322,16 @@ class codeg(object):
                 #print(pp)
             return p
         
-        elif isinstance(node, ast_nodes.FunctionDec):
+        elif isinstance(node, ast_nodes.FunctionDec):  
+            old_symtab = self.func_symtab  
             self.func_symtab = {}
+
             funcname = node.name
             # Create a function type
             arglist = []
             for iter in node.arg_types:
-                if iter[1] == "float":
-                    arglist = arglist + [type_dbl]
-                elif iter[1] == "string":
-                    # arglist = arglist + [ir.ArrayType(ir.IntType(8),8)]
-                    arglist = arglist + [type_str]
-                else:
-                    arglist = arglist + [type_i32]
+                ltype = get_llvmtype_fromArglist(iter[1])
+                arglist = arglist + [ltype]
             # print(f"ARGLIST: {arglist}")
             if node.return_type == "float":
                 func_ty = ir.FunctionType(type_dbl,
@@ -329,49 +342,56 @@ class codeg(object):
             else:
                 func_ty = ir.FunctionType(type_i32,
                                     arglist)
-            func = ir.Function(self.module, func_ty, funcname)
+            
+            if funcname in self.module.globals:
+                # there was already a declaration
+                func = self.module.globals[funcname]
+            else:
+                func = ir.Function(self.module, func_ty, funcname)
 
             # print(f"func: {func.args}")
+
+            if node.body == None:
+                # this is the declaration only.
+                self.func_symtab = old_symtab
+                return func
 
             bb_entry = func.append_basic_block('entry')
             self.builder = ir.IRBuilder(bb_entry)
 
-            # print(f"func:arg_types {node.arg_types}")
+            #print(f"func:arg_types {node.arg_types}")
             for i, iter in enumerate(func.args):
-                if node.arg_types[i][1] == "float":
-                    alloca = self.builder.alloca(type_dbl, name=node.arg_types[i][0])
-                elif node.arg_types[i][1] == "string":
-                    # alloca = self.builder.alloca(ir.ArrayType(ir.IntType(8),8), name=node.arg_types[i][0])
-                    alloca = self.builder.alloca(type_str, name=node.arg_types[i][0])               
-                else:
-                    alloca = self.builder.alloca(type_i32, name=node.arg_types[i][0])
+                # print(f"{arglist[i]}, {node.arg_types[i][0]}")
+                alloca = self.builder.alloca(arglist[i],  name=node.arg_types[i][0])
                 self.builder.store(iter, alloca)
                 self.func_symtab[node.arg_types[i][0]] = alloca
                 # print(f"func args: {alloca}")
 
             if node.return_type != None:
-                if node.return_type == "float":            
-                    arg = ir.Constant(type_dbl, 0.0)
-                    func_var = self.builder.alloca(type_dbl, name=node.name)
-                elif node.return_type == "string":
-                    arg = self.builder.alloca(type_str, name=node.name)
-                else:
-                    arg = ir.Constant(type_i32, 0)
-                    func_var = self.builder.alloca(type_i32, name=node.name)
-                
+                # allocate space for the return type
+                rt = get_llvmtype_fromArglist(node.return_type)
+                arg = ir.Constant(rt, None)
+                func_var = self.builder.alloca(rt, name=node.name)
+
                 self.builder.store(arg, func_var)
                 self.func_symtab[node.name] = func_var
 
             body = self.codegen(node.body)
-            
+
             if node.return_type != None:
                 self.builder.ret(self.builder.load(func_var, node.name))
             else:
                 self.builder.ret_void()
+            
+            self.func_symtab = old_symtab
             return func
             
         elif isinstance(node, ast_nodes.OpExp):
             # print(f"opnode.semtype {node.sem_type}")
+
+            if hasattr(node, "opt") and node.opt != None:
+                # optimizer
+                return(ir.Constant(type_i32, node.opt))
 
             rightsemtype = getsemtype(node.left)
             # print(f"right semtype: {rightsemtype}")
@@ -390,6 +410,8 @@ class codeg(object):
                     return self.builder.fsub(left, right, 'subtmp')
                 elif node.oper == ast_nodes.Oper.times:
                     return self.builder.fmul(left, right, 'multmp')
+                elif node.oper == ast_nodes.Oper.divide:
+                    return self.builder.fdiv(left, right, 'divtmp')
             if node.sem_type == "boolean":
                 if leftsemtype == "float":
                     if node.oper == ast_nodes.Oper.lt:
@@ -437,6 +459,10 @@ class codeg(object):
                     return self.builder.sub(left, right, 'subtmp')
                 if node.oper == ast_nodes.Oper.times:
                     return self.builder.mul(left, right, 'multmp')
+                elif node.oper == ast_nodes.Oper.divide:
+                    return self.builder.sdiv(left, right, 'divtmp')
+                elif node.oper == ast_nodes.Oper.mod:
+                    return self.builder.srem(left, right, 'modtmp')
             return(left)
         else:
             print("codegen not found: %s" % (type(node)))

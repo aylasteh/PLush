@@ -1,6 +1,6 @@
 
 from __future__ import print_function
-from ctypes import CFUNCTYPE, c_double
+from ctypes import CFUNCTYPE, c_int32, c_char_p
 
 import llvmlite.ir as ir
 import llvmlite.binding as llvm
@@ -12,9 +12,7 @@ import ast_nodes as Node
 import plush_parser
 import semantic
 import codegen
-
-import jsonpickle
-
+import json
 
 # ERROR
 class SyntacticError(Exception):
@@ -44,6 +42,9 @@ arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("file", help="PLush file to parse")
 arg_parser.add_argument("--tree", action="store_true", help="print syntax tree")
 arg_parser.add_argument("--optimize", action="store_true", help="optimization")
+arg_parser.add_argument("--showllvm", action="store_true", help="print generated llvm code")
+arg_parser.add_argument("--showassembly", action="store_true", help="print generated llvm code after assembly stage")
+arg_parser.add_argument("--execllvm", action="store_true", help="execute the generated object code in memory")
 
 args = arg_parser.parse_args()
 
@@ -51,31 +52,25 @@ with open(args.file, 'r') as infile:
     input_string = infile.read()
 try:
     parsed_output = plush_parser.plush_parse(input_string)
-    if args.tree:
-        print("Parsed output:")
-
 
     if args.optimize:
         semantic.optimize = 1
     semantic.check(parsed_output)
+
     if args.tree:
-        print(jsonpickle.encode(parsed_output))
+        po = "{" + parsed_output.pp() + "}"
+        jf = json.loads(po)
+        print(json.dumps(jf, indent=2))
 
 except SyntacticError as e:
     print(f"Syntax error: {e}")
     parsed_output = None
 except Exception as e:
-    print("Exception:")
-    print(e)
-    print(type(e))
+    print(f"Exception: {e}")
     parsed_output = None
-    print("Continuing with next file")
         
 if parsed_output == None:
-    print("error parsing")
     exit ()
-
-
 
 # For now disable the llvm example
 
@@ -90,88 +85,36 @@ cg = codegen.codeg()
 
 llvm_ir = cg.codegen(parsed_output)
 
-print(str(cg.module))
+if args.showllvm:
+    print(str(cg.module))
 
 target_machine = target.create_target_machine(codemodel='small')
 
 # Convert LLVM IR into in-memory representation
 llvmmod = llvm.parse_assembly(str(cg.module))
 
+plush_file_name=Path(args.file).stem
 # Create object file
-plush_object_file_name=Path(args.file).stem + ".o"
+plush_object_file_name=plush_file_name + ".o"
 with open(plush_object_file_name, 'wb') as obj_file:
-    #llvmassembly = target_machine._assembly(llvmmod)
     objdata = target_machine.emit_object(llvmmod)
     obj_file.write(objdata)
     # print('Wrote ' + plush_object_file_name)
 
-#print(llvmmod)
+if args.showassembly:
+    print(llvmmod)
 
-target_machine = target.create_target_machine()
-with llvm.create_mcjit_compiler(llvmmod, target_machine) as ee:
-    ee.finalize_object()
+if args.execllvm:
+    target_machine = target.create_target_machine()
+    with llvm.create_mcjit_compiler(llvmmod, target_machine) as ee:
+        ee.finalize_object()
 
-    # print('======== Machine code')
-    # print(target_machine.emit_assembly(llvmmod))
+        # print('======== Machine code')
+        # print(target_machine.emit_assembly(llvmmod))
 
-    fptr = CFUNCTYPE(c_double)(ee.get_function_address("main"))
-    result = fptr()
-    print(f"Result is: {result}")
-
-
+        fptr = CFUNCTYPE(c_int32)(ee.get_function_address("main"))
+        args = (c_char_p * 2) (plush_file_name.encode(), b'arg1')
+        result = fptr(len(args),  args )
+        print(f"Result is: {result}")
 
 exit()
-
-llvm_ir = """
-   ; ModuleID = "examples/ir_fpadd.py"
-   target triple = "unknown-unknown-unknown"
-   target datalayout = ""
-
-   define double @"fpadd"(double %".1", double %".2")
-   {
-   entry:
-     %"res" = fadd double %".1", %".2"
-     ret double %"res"
-   }
-   """
-
-def create_execution_engine():
-    """
-    Create an ExecutionEngine suitable for JIT code generation on
-    the host CPU.  The engine is reusable for an arbitrary number of
-    modules.
-    """
-    # Create a target machine representing the host
-    target = llvm.Target.from_default_triple()
-    target_machine = target.create_target_machine()
-    # And an execution engine with an empty backing module
-    backing_mod = llvm.parse_assembly("")
-    engine = llvm.create_mcjit_compiler(backing_mod, target_machine)
-    return engine
-
-
-def compile_ir(engine, llvm_ir):
-    """
-    Compile the LLVM IR string with the given engine.
-    The compiled module object is returned.
-    """
-    # Create a LLVM module object from the IR
-    mod = llvm.parse_assembly(llvm_ir)
-    mod.verify()
-    # Now add the module and make sure it is ready for execution
-    engine.add_module(mod)
-    engine.finalize_object()
-    engine.run_static_constructors()
-    return mod
-
-
-engine = create_execution_engine()
-mod = compile_ir(engine, llvm_ir)
-
-# Look up the function pointer (a Python int)
-func_ptr = engine.get_function_address("fpadd")
-
-# Run the function via ctypes
-cfunc = CFUNCTYPE(c_double, c_double, c_double)(func_ptr)
-res = cfunc(1.0, 3.5)
-print("fpadd(...) =", res)

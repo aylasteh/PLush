@@ -268,7 +268,7 @@ except SyntacticError as e:
     print(f"Syntax error: {e}")
 '''
 
-import ast_nodes as Node
+import ast_nodes1 as Node
 from ply.yacc import yacc
 #import src.ply.yacc as yacc
 #from src.lexer.lex import tokens

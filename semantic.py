@@ -60,9 +60,13 @@ functions = {
     'putchar':('int',[
 			("a",'int')
 		]),
+    'print_int':('int',[
+			("a",'int')
+		]),
     'putchard':('float',[
 			("a",'float')
 		])
+    
 }
 
 def pop():
